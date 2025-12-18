@@ -73,33 +73,43 @@ Reconstruction loss induces two complementary behaviors:
 		* $D: \mathbb R^d \to \mathbb R^D$ , maps *coordinates* back to *ambient* space
 		* with the constraint $D(E(x)) \approx x, \forall x \in \mathcal M$ 
 	* i.e. charts work in differential geometry, and generally a **local parameterization**, not guaranteed to be globally **invertible**. 
-* A projection operator onto the data manifold
+* A projection operator onto the data manifold: $P(x) := D(E(x))$ 
+	* For $x \in \mathcal M$: $P(x) \approx x$
+	* For $x \notin \mathcal{M}$: $P(x) \approx$ nearest point on $\mathcal M$.
+	* Gemetrically:
+		* Encoder removes off-manifold components
+		* Decoder reconstructs the closet on-manifold point
+	* So $P$ behaves like a nonlinear projection onto the manifold
 * Good reconstructions
+	* $x \to z \to \hat x$ 
+	* Mapping data points on the manifold, to latent coordinates, back to ambient space
 * Meaningful latent directions *locally*
-
+	* Latent direction: a direction $v \in \mathbb R^d$ such that $D(z + \epsilon v)$ produces a meaningful change in data space (e.g. rotate a face, change lightning, modify pitch)
+	* Locally as AE only guarantees correctness near latent codes it has seen, not on the whole latent space.
+	* Around $z_0 = E(x_0)$, $D(z_0 + \delta) \approx x_0 + J_D(z_0)\delta$ where
+		* $J_D(z_0)$ spans tangent space directions
+		* This approximation breaks down globally
+		* So small moves means semantic change, and large moves collapse or nonsense.
+	* AE latent spaces typically have *Folds, Self-Intersections, Holes, Disconnected Regions*.
+		* One latent direction near one sample may mean something entirely different elsewhere.
 ### Incapability
-* A *pabability distribution* over the manifold
-* A well-behaved latent space
-* A pricipled way to *sample* 
+* A *probability distribution* over the manifold
+	* We want to switch from a **point mapping** to a **distribution** 
+	* In vanilla AE, encoder $E(x) = z$ is a single deterministic vector, and decoder $D(z) = \hat x$, so there's no probability distribution in the model.
+	* Implicitly, we have an empirical distribution of latent codes: $\{z_i = E(x_i)\}$ 
+		* But, this is just a set of points, not a density, not continuous, not smooth, not known anlalytically
+	* We want a probability measure $p_{\mathcal M}(x)$ supported on $\mathcal M$ , equivalently: $p(z)$ such that $x = D(z)$.
+		* answering which regions of the manifold are likely, which are rare, and how often should we sample each 'mode', where AE can't answer.
+* A well-behaved latent space, where AE has
+	* Holes: large regions of latent space never used, sampling could land in invalid zones
+	* Folds / self-intersections: distant points on the manifold map close in latent, introducing decoder ambiguity
+	* Disconnected regions: separate clusters with no smooth path, so intepolation crosses invalid space
+	* Non-uniform density: some areas densely packed and others sparse, with sampling bias unknown.
+	* Well-behaved: 
+		* A known prior $p(z)$
+		* Smooth, continuous support, no holes, consistent neighborhoods.
+* A principled way to *sample* 
+	* AE doesn't catch distribution, empirical sampling (pick a random training z) just memorizes
+	* AE degenerates sampling to nearest-neighbor reconstruction, interpolation between known points, adding untrolled noise, where we need $x\sim p_{data}$ 
 
-## VAE: probabilistic latent-variable model + variational training objective
-Choose a prior $p(z)$ (commonly $\mathcal N(0,I)$) and a decoder likelihood $p_\phi(x \mid z)$. Since $p_\phi(z \mid x)$ is intractable, introduce an encoder $q_\theta(z \mid x)$ and maximize the evidence lower bound (ELBO):
-
-$$
-\log p_\phi(x)
-=
-\underbrace{\mathbb E_{q_\theta(z\mid x)}[\log p_\phi(x\mid z)] - \mathrm{KL}(q_\theta(z\mid x)\,\|\,p(z))}_{\mathcal L_{\text{ELBO}}(x)}
-\ +\ \mathrm{KL}(q_\theta(z\mid x)\,\|\,p_\phi(z\mid x))
-$$
-
-so
-
-$$
-\log p_\phi(x) \ge \mathcal L_{\text{ELBO}}(x)
-$$
-
-Intuition:
-- $\mathbb E_{q_\theta(z\mid x)}[\log p_\phi(x\mid z)]$: reconstruction term (likelihood)
-- $\mathrm{KL}(q_\theta(z\mid x)\,\|\,p(z))$: regularizes latents to match the prior (enables sampling $z \sim p(z)$ for generation)
-
-(Common Gaussian encoder uses the reparameterization trick: $z=\mu_\theta(x)+\sigma_\theta(x)\odot \epsilon,\ \epsilon\sim\mathcal N(0,I)$.)
+VAE enables: $z \sim p(z) = \mathcal{N}(0, I) \quad\Rightarrow\quad x = D(z)$  
