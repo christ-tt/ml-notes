@@ -64,52 +64,51 @@ Reconstruction loss induces two complementary behaviors:
 
 ## What Autoencoders is (and not) capable of
 ### Capability
-* A manifold *parameterization*
-	* To parameterize a manifold $\mathcal M \subset \mathbb R^D$ means:
-		* Assign each data point $x \in \mathcal M$ a *coordinate* $z \in \mathbb R^d$ 
-		* Such that nearby points on $\mathcal M$ have nearby coordinates
-	* AE learns two maps
-		* $E: \mathcal M \to \mathbb R^d$, assigns *coordinates* to points on the manifold
-		* $D: \mathbb R^d \to \mathbb R^D$ , maps *coordinates* back to *ambient* space
-		* with the constraint $D(E(x)) \approx x, \forall x \in \mathcal M$ 
-	* i.e. charts work in differential geometry, and generally a **local parameterization**, not guaranteed to be globally **invertible**. 
-* A projection operator onto the data manifold: $P(x) := D(E(x))$ 
+* A manifold *parameterization* (local chart)
+	* To parameterize a manifold $\mathcal M \subset \mathbb R^D$ means assigning each data point $x \in \mathcal M$ a coordinate $z \in \mathbb R^d$ such that nearby points on $\mathcal M$ have nearby coordinates.
+	* An AE learns two maps:
+		* Encoder: $E_\theta:\mathbb R^D \to \mathbb R^d$
+		* Decoder: $D_\phi:\mathbb R^d \to \mathbb R^D$
+		* Reconstruction constraint (on data): $D_\phi(E_\theta(x)) \approx x$ for $x \sim p_{\text{data}}$ (i.e. near $\mathcal M$).
+	* Like charts in differential geometry, this is generally **local**—not guaranteed to be globally **invertible**.
+* A projection operator onto the data manifold: $P(x) := D_\phi(E_\theta(x))$
 	* For $x \in \mathcal M$: $P(x) \approx x$
-	* For $x \notin \mathcal{M}$: $P(x) \approx$ nearest point on $\mathcal M$.
-	* Gemetrically:
-		* Encoder removes off-manifold components
-		* Decoder reconstructs the closet on-manifold point
-	* So $P$ behaves like a nonlinear projection onto the manifold
-* Good reconstructions
-	* $x \to z \to \hat x$ 
-	* Mapping data points on the manifold, to latent coordinates, back to ambient space
+	* For $x \notin \mathcal M$: $P(x)$ tends to map back toward (a nearby point on) $\mathcal M$
+	* Geometrically: the encoder suppresses off-manifold components; the decoder reconstructs an approximately closest on-manifold point.
 * Meaningful latent directions *locally*
-	* Latent direction: a direction $v \in \mathbb R^d$ such that $D(z + \epsilon v)$ produces a meaningful change in data space (e.g. rotate a face, change lightning, modify pitch)
-	* Locally as AE only guarantees correctness near latent codes it has seen, not on the whole latent space.
-	* Around $z_0 = E(x_0)$, $D(z_0 + \delta) \approx x_0 + J_D(z_0)\delta$ where
-		* $J_D(z_0)$ spans tangent space directions
-		* This approximation breaks down globally
-		* So small moves means semantic change, and large moves collapse or nonsense.
-	* AE latent spaces typically have *Folds, Self-Intersections, Holes, Disconnected Regions*.
-		* One latent direction near one sample may mean something entirely different elsewhere.
-### Incapability
-* A *probability distribution* over the manifold
-	* We want to switch from a **point mapping** to a **distribution** 
-	* In vanilla AE, encoder $E(x) = z$ is a single deterministic vector, and decoder $D(z) = \hat x$, so there's no probability distribution in the model.
-	* Implicitly, we have an empirical distribution of latent codes: $\{z_i = E(x_i)\}$ 
-		* But, this is just a set of points, not a density, not continuous, not smooth, not known anlalytically
-	* We want a probability measure $p_{\mathcal M}(x)$ supported on $\mathcal M$ , equivalently: $p(z)$ such that $x = D(z)$.
-		* answering which regions of the manifold are likely, which are rare, and how often should we sample each 'mode', where AE can't answer.
-* A well-behaved latent space, where AE has
-	* Holes: large regions of latent space never used, sampling could land in invalid zones
-	* Folds / self-intersections: distant points on the manifold map close in latent, introducing decoder ambiguity
-	* Disconnected regions: separate clusters with no smooth path, so intepolation crosses invalid space
-	* Non-uniform density: some areas densely packed and others sparse, with sampling bias unknown.
-	* Well-behaved: 
-		* A known prior $p(z)$
-		* Smooth, continuous support, no holes, consistent neighborhoods.
-* A principled way to *sample* 
-	* AE doesn't catch distribution, empirical sampling (pick a random training z) just memorizes
-	* AE degenerates sampling to nearest-neighbor reconstruction, interpolation between known points, adding untrolled noise, where we need $x\sim p_{data}$ 
+	* A latent direction is a direction $v \in \mathbb R^d$ such that $D_\phi(z + \epsilon v)$ produces a meaningful change in data space (e.g. rotate a face, change lighting, modify pitch).
+	* Around $z_0 = E_\theta(x_0)$, the decoder is approximately linear:
 
-VAE enables: $z \sim p(z) = \mathcal{N}(0, I) \quad\Rightarrow\quad x = D(z)$  
+$$
+D_\phi(z_0 + \delta) \approx D_\phi(z_0) + J_{D_\phi}(z_0)\,\delta,
+$$
+
+	so small moves can correspond to semantic changes, while large moves can leave the region the decoder was trained on.
+	* Practically, AE latent spaces can contain *holes*, *folds / self-intersections*, and *disconnected regions*—so a “direction” meaningful near one sample may not generalize globally.
+
+### Incapability
+* A *probability distribution* over the manifold (and thus principled sampling)
+	* We want to switch from a **point mapping** ($x \mapsto z$) to a **distribution** we can sample from.
+	* In a vanilla AE, $z = E_\theta(x)$ and $\hat x = D_\phi(z)$ are deterministic, so there is no explicit density over $z$ (or $x$).
+	* Implicitly we only have an empirical set of latent codes $\{z_i = E_\theta(x_i)\}$:
+		* a set of points, not an analytic density (not smooth/continuous in a controlled way for sampling).
+* A well-behaved latent space for naive sampling
+	* Typical issues: 
+		* Holes: unused regions
+		* Folding/self-intersections: distant points on the manifold map close in latent 
+		* Disconnected components: separate clusters with no smooth path 
+		* Highly non-uniform density
+	* So a random $z \in \mathbb R^d$ may decode off-manifold, and interpolation can cross invalid regions.
+* A principled way to *sample*
+	* Empirical sampling (pick a training $z_i$) is closer to memorization than generation.
+	* Randomly sampling $z$ without a known prior is uncontrolled—yet we want $x \sim p_{\text{data}}$.
+
+**Motivation for VAE**: impose a known prior and train encoded latents to match it.
+
+VAE enables: $z \sim p(z) = \mathcal N(0, I) \quad\Rightarrow\quad x \sim p_\phi(x\mid z)$.
+
+One common training objective (ELBO):
+
+$$
+\log p_\phi(x)\ \ge\ \mathbb E_{q_\theta(z\mid x)}[\log p_\phi(x\mid z)] - \mathrm{KL}(q_\theta(z\mid x)\,\|\,p(z)).
+$$
