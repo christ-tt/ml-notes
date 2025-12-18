@@ -4,70 +4,102 @@ tags:
 themes: Image Generation, Multi-Modal, Machine Learning
 created: 2025-12-14
 ---
-# Generation
-## Distribution of Data
+# Autoencoders
 
-**Hypothesis**: The data are distributed about a curved or otherwise non-linear **manifold** in high dimensional space
-* Assuming data lives in $x \in R^D$ where $D$ very large, but the true degrees of freedom are much smaller: $\mathcal{M} \subset R^D$    where $\text{dim} (\mathcal M) \ll D$  
-	* Examples: 
-		* Images: lighting, pose, identity, texture
-		* Speech: phonemes, pitch, speaker identity
-		* Text embeddings: semantics, syntax, style
-	* Random points in $R^D$ are meaningless - only points near $\mathcal M$ look like data.
-* The principal components of all instances of the target class of data lie on this manifold.
-- To generate data for this class, we muse select a point on this manifold.
+## Data distribution: the (approximate) manifold hypothesis
+**Hypothesis**: high-dimensional observations $x \in \mathbb R^D$ concentrate near a low-dimensional, curved set $\mathcal M \subset \mathbb R^D$ with $\dim(\mathcal M) \ll D$.
 
+- **Examples**:
+	- Images: lighting, pose, identity, texture
+	- Speech: phonemes, pitch, speaker identity
+	- Text embeddings: semantics, syntax, style
+- **Consequence**: random points in $\mathbb R^D$ are typically meaningless; only points near $\mathcal M$ look like data.
+- **Generation viewpoint**: to generate realistic $x$, we need a strategy to sample points that land on/near $\mathcal M$.
 
+## Local coordinates + projection back to $\mathcal M$
+An autoencoder captures the manifold because **reconstruction pressure** forces the encoder to learn a low-dimensional coordinate system while collapsing off-manifold directions.
 
-**Problems**: 
-* Characterizing the manifold.
-* Having a good strategy for selecting points from it.
+- ![[VAE.png]]
+- **Encoder (compression)**: forces $x$ through a bottleneck $z$, discarding information not needed for reconstruction.
+- **Decoder (reconstruction)**: maps latent coordinates back to the ambient space, ideally landing near the data distribution.
 
+Formally, an autoencoder solves:
 
-### Auto Encoders
-* An autoencoder captures a manifold because **reconstruction pressure** forces the encoder to discover the **minimal** set of **coordinates** that locally parameterize the data, collapsing all off-manifold directions.
-* ![[VAE.png]]
-* Encoder **Compression**: By forcing the high-dimensional input $x$ through a low-dimensional bottleneck $z$ , the  encoder must *discard* information
-* Decoder **Reconstruction**: Learning a mapping from the low-dimensional coordinates back to the high-dimensional space, reconstructing only points near the data distribution
-* Formally, an autoencoder learns $$ \min_{\theta, \phi} \mathbb E(x) \sim p_{\text{data}}\left[||x - D_\phi (E_\theta (x))||^2\right]$$ where 
-	* Encoder: $E: \mathbb R^D \to \mathbb R^d$ 
-	* Decoder: $D: \mathbb R^d \to \mathbb R^D$ 
-	* Bottleneck: $d < D$ 
-* Around any data point, the manifold looks approximately linear, and the reconstruction loss enforces
-	* Sensitivity along tangent directions: Let $x' = x + \epsilon v, v\in T_x\mathcal M$  
-		* Then 
-			* $x'$ is still a valid data point
-			* Reconstruction loss must be low for both $x$ and $x'$ 
-		* Therefore
-			* Encoder must **distinguish** $x$ and $x'$
-			* Latent representation must change meaningfully
-	* Insensitivity along normal directions: Let $x' = x + \epsilon n, n\perp T_x\mathcal M$ 
-		* Then
-			* $x'$ is off-manifold
-			* No training data exists there
-		* Best strategy for minimizing expected loss:
-			* Map $x'$ back toward the nearest point on $\mathcal M$ 
-		* This is implicit denoising, even without explicit noise.
-* Formally,
-	* Encoder Jacobian spans the tangent space
-		* Row View: the rows of the encoder's Jacobian represent the gradient vectors of the latent units; pointing the directions where $z$ changes the most, as $z$ only changes when we move along the manifold (tangent).
-	* Decoder maps latent points back onto $M$ 
-		* Column View: the columns of the decoder's Jacobian represent the partial $\frac{\partial \hat x}{\partial z_i}$, forming a basis for the tangent plane at $\hat x$.
-* So,
-	* Small changes in latent space $\to$ realistic variations
-	* Small off-manifold perturbations $\to$ collapsed by encoder.
+$$
+\min_{\theta,\phi}\ \mathbb E_{x \sim p_{\text{data}}}\left[\lVert x - D_\phi(E_\theta(x))\rVert^2\right]
+$$
 
-**Problem with AEs**
-* Improper choice of input to the decoder can result in incorrect generation
-* How do we know what inputs are reasonable for the decoder?
-	* Only choose input ($z$'s) that are typical of the class
-		* I.E. drawn from the distribution of $z$'s. (But what is this distribution?)
+where
+- Encoder: $E_\theta: \mathbb R^D \to \mathbb R^d$
+- Decoder: $D_\phi: \mathbb R^d \to \mathbb R^D$
+- Bottleneck: $d < D$
 
-### Manifold (Briefly)
-* Geometric Intuitions: The 'Flat Earth' Analogy
-	* A manifold is a shape that looks *curved* when viewed from *far away* (globally), but looks flat when you view a tiny patch of it up *close* (locally).
-	* Fundamental property of smooth manifold: zooming in effectively infinite times on a curve (1D) or a surface (2D), the curvature disappears, indistinguishable from a line or a plane.
-	* Mathematically, we can approximate the manifold $M$ around a point $x$ using **Tangent Space** $(T_x\mathcal M)$ , a linear hyperplane.
-* Tangent v.s. Normal Directions
-	* Tangent: vectors lying on the manifold surface. Moving $x$ in this direction changes the data content meaningfully (e.g. rotating a digit slightly)
-	* Normal: vectors pointing *away* from the manifold (orthogonal). Moving $x$ in this direction adds noise/artifacts that make the data invalid.
+### Local geometry: tangent vs normal directions 
+A smooth manifold is globally curved but **locally linear**: around a point $x$, $\mathcal M$ is well-approximated by its **tangent space** $T_x\mathcal M$, a linear hyperplane. (Flat Earth Analogy)
+
+Reconstruction loss induces two complementary behaviors:
+
+- **Sensitivity along tangent directions** (meaningful variation):
+	- Let $x' = x + \epsilon v$ with $v \in T_x\mathcal M$.
+	- Then $x'$ is still (approximately) a valid data point, so reconstruction should stay low for both $x$ and $x'$.
+	- Therefore the encoder must **distinguish** $x$ and $x'$: the latent representation should change meaningfully along tangent directions.
+
+- **Insensitivity along normal directions** (implicit *denoising*):
+	- Let $x' = x + \epsilon n$ with $n \perp T_x\mathcal M$.
+	- Then $x'$ is off-manifold (no training data there).
+	- Minimizing expected reconstruction encourages mapping $x'$ back toward (the neighborhood of) $\mathcal M$, behaving like a **projector**, even without explicit noise.
+
+### Jacobian viewpoint (more formal intuition)
+- **Encoder Jacobian aligns with the tangent space**:
+	- *Row view*: rows of $J_{E_\theta}(x)$ are gradients of latent coordinates; they point in directions where $z$ changes, which should primarily be directions along $\mathcal M$.
+- **Decoder Jacobian spans the local tangent plane at $\hat x$**:
+	- With $\hat x = D_\phi(z)$, columns of $J_{D_\phi}(z)$ are $\frac{\partial \hat x}{\partial z_i}$, giving a basis for the local tangent directions of the decoded manifold.
+
+## Noise & Interpolation in practice
+- **Latent interpolation looks semantic**:
+	- Let $z = E_\theta(x)$. For a small $\delta$, define $z' = z + \delta$, and decode $x' = D_\phi(z')$.
+	- Since $D_\phi$ is trained only on (approximately) on-manifold codes, $x'$ tends to stay near $\mathcal M$, yielding realistic variations (pose, lighting, expression, …).
+- **Off-manifold noise is collapsed**:
+	- For $x' = x + \epsilon n$ (normal perturbation), typically $E_\theta(x') \approx E_\theta(x)$, so $D_\phi(E_\theta(x')) \approx D_\phi(E_\theta(x)) \approx x$.
+
+## What Autoencoders is (and not) capable of
+### Capability
+* A manifold *parameterization*
+	* To parameterize a manifold $\mathcal M \subset \mathbb R^D$ means:
+		* Assign each data point $x \in \mathcal M$ a *coordinate* $z \in \mathbb R^d$ 
+		* Such that nearby points on $\mathcal M$ have nearby coordinates
+	* AE learns two maps
+		* $E: \mathcal M \to \mathbb R^d$, assigns *coordinates* to points on the manifold
+		* $D: \mathbb R^d \to \mathbb R^D$ , maps *coordinates* back to *ambient* space
+		* with the constraint $D(E(x)) \approx x, \forall x \in \mathcal M$ 
+	* i.e. charts work in differential geometry, and generally a **local parameterization**, not guaranteed to be globally **invertible**. 
+* A projection operator onto the data manifold
+* Good reconstructions
+* Meaningful latent directions *locally*
+
+### Incapability
+* A *pabability distribution* over the manifold
+* A well-behaved latent space
+* A pricipled way to *sample* 
+
+## VAE: probabilistic latent-variable model + variational training objective
+Choose a prior $p(z)$ (commonly $\mathcal N(0,I)$) and a decoder likelihood $p_\phi(x \mid z)$. Since $p_\phi(z \mid x)$ is intractable, introduce an encoder $q_\theta(z \mid x)$ and maximize the evidence lower bound (ELBO):
+
+$$
+\log p_\phi(x)
+=
+\underbrace{\mathbb E_{q_\theta(z\mid x)}[\log p_\phi(x\mid z)] - \mathrm{KL}(q_\theta(z\mid x)\,\|\,p(z))}_{\mathcal L_{\text{ELBO}}(x)}
+\ +\ \mathrm{KL}(q_\theta(z\mid x)\,\|\,p_\phi(z\mid x))
+$$
+
+so
+
+$$
+\log p_\phi(x) \ge \mathcal L_{\text{ELBO}}(x)
+$$
+
+Intuition:
+- $\mathbb E_{q_\theta(z\mid x)}[\log p_\phi(x\mid z)]$: reconstruction term (likelihood)
+- $\mathrm{KL}(q_\theta(z\mid x)\,\|\,p(z))$: regularizes latents to match the prior (enables sampling $z \sim p(z)$ for generation)
+
+(Common Gaussian encoder uses the reparameterization trick: $z=\mu_\theta(x)+\sigma_\theta(x)\odot \epsilon,\ \epsilon\sim\mathcal N(0,I)$.)
