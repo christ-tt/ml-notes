@@ -77,13 +77,7 @@ Reconstruction loss induces two complementary behaviors:
 	* Geometrically: the encoder suppresses off-manifold components; the decoder reconstructs an approximately closest on-manifold point.
 * Meaningful latent directions *locally*
 	* A latent direction is a direction $v \in \mathbb R^d$ such that $D_\phi(z + \epsilon v)$ produces a meaningful change in data space (e.g. rotate a face, change lighting, modify pitch).
-	* Around $z_0 = E_\theta(x_0)$, the decoder is approximately linear:
-
-$$
-D_\phi(z_0 + \delta) \approx D_\phi(z_0) + J_{D_\phi}(z_0)\,\delta,
-$$
-
-	so small moves can correspond to semantic changes, while large moves can leave the region the decoder was trained on.
+	* Around $z_0 = E_\theta(x_0)$, the decoder is approximately linear:$$D_\phi(z_0 + \delta) \approx D_\phi(z_0) + J_{D_\phi}(z_0)\,\delta,$$so small moves can correspond to semantic changes, while large moves can leave the region the decoder was trained on.
 	* Practically, AE latent spaces can contain *holes*, *folds / self-intersections*, and *disconnected regions*—so a “direction” meaningful near one sample may not generalize globally.
 
 ### Incapability
