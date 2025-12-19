@@ -113,11 +113,22 @@ $$\log p_\phi(x)\ \ge\ \mathbb E_{q_\theta(z\mid x)}[\log p_\phi(x\mid z)] - \ma
 
 * Given encoder and decoder may have arbitrarily complex structure and their own parameters $\theta, \phi$, we ask, how to properly train an AE so that the latent follows, e.g. Normal?
 
-### Isotropic Gaussians
+### Prior of the Latent: Isotropic Gaussians
 * $P(Z) = \mathcal N(0, I)$ 
+* Maximally uninformative, simplest continous prior with strong math properties
 * The distribution is perfectly symmetric in every direction
-	* The different variables (sub-vectors $Z_1, Z_2$ of $Z$ ) are independent. i.e. $P(Z_1, Z_2) = P(Z_1)P(Z_2)$ .
+	* 
+	* No preferred direction, axis, and rotational invariance
+	* Avoids arbitrary coordinate bias and special latent dimensions
+* The distribution has independence of components
+	* The different variables (sub-vectors $Z_1, Z_2$ of $Z$ ) are independent. i.e. $P(Z_1, Z_2) = P(Z_1)P(Z_2)$ 
+	* Encourages disentanglement
+	* Prevents latent dimensions from having to coordinate
+		* The model can still learn correlated semantics, but it must encode them via the *decoder* , not via latent coupling
+* Closure under marginalization
 	* Each individually will also be isotropic: $P(Z_1) = \mathcal N(0, I)$ 
+	* Making partial sampling, dimensional slicing, hierarchical models mathematically clean
+* Analytic, closed-form, differentiable, and stable in high dimensions density, crucial for backprop gradients.
 	* $$ P(Z) = \frac{1}{\sqrt{(2\pi)^d}} \exp \left (-0.5 |Z|^2 \right),$$ $$ -\log P(Z) = 0.5d\log 2\pi + 0.5 |Z|^2$$ 
 
 
