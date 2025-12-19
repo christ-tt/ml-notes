@@ -15,6 +15,7 @@ created: 2025-12-14
 	- Text embeddings: semantics, syntax, style
 - **Consequence**: random points in $\mathbb R^D$ are typically meaningless; only points near $\mathcal M$ look like data.
 - **Generation viewpoint**: to generate realistic $x$, we need a strategy to sample points that land on/near $\mathcal M$.
+- Note: Manifold is defined in the ambient (data) space, not the latent space.
 
 ## Local coordinates + projection back to $\mathcal M$
 An autoencoder captures the manifold because **reconstruction pressure** forces the encoder to learn a low-dimensional coordinate system while collapsing off-manifold directions.
@@ -103,6 +104,22 @@ VAE enables: $z \sim p(z) = \mathcal N(0, I) \quad\Rightarrow\quad x \sim p_\phi
 
 One common training objective (ELBO):
 $$\log p_\phi(x)\ \ge\ \mathbb E_{q_\theta(z\mid x)}[\log p_\phi(x\mid z)] - \mathrm{KL}(q_\theta(z\mid x)\,\|\,p(z))$$
+
+
+## How to Train an AE so that latent follows a specific distribution 
+* When training the AE, explicitly impose the constraint that the hidden representation $z$ must follow a specific distribution, e.g. $P(z) \sim \mathcal N(0, I)$ .
+* To generate novel values, sample $z$ from the prescribed distribution, and if it is properly sampled, the output should be a reasonable generation.
+* ![[VAE-1.png]]
+
+* Given encoder and decoder may have arbitrarily complex structure and their own parameters $\theta, \phi$, we ask, how to properly train an AE so that the latent follows, e.g. Normal?
+
+### Isotropic Gaussians
+* $P(Z) = \mathcal N(0, I)$ 
+* The distribution is perfectly symmetric in every direction
+	* The different variables (sub-vectors $Z_1, Z_2$ of $Z$ ) are independent. i.e. $P(Z_1, Z_2) = P(Z_1)P(Z_2)$ .
+	* Each individually will also be isotropic: $P(Z_1) = \mathcal N(0, I)$ 
+	* $$ P(Z) = \frac{1}{\sqrt{(2\pi)^d}} \exp \left (-0.5 |Z|^2 \right),$$ $$ -\log P(Z) = 0.5d\log 2\pi + 0.5 |Z|^2$$ 
+
 
 
 
