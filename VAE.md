@@ -130,6 +130,7 @@ $$\log p_\phi(x)\ \ge\ \mathbb E_{q_\theta(z\mid x)}[\log p_\phi(x\mid z)] - \ma
 	* Making partial sampling, dimensional slicing, hierarchical models mathematically clean
 * Analytic, closed-form, differentiable, and stable in high dimensions density, crucial for backprop gradients.
 	* $$ P(Z) = \frac{1}{\sqrt{(2\pi)^d}} \exp \left (-0.5 |Z|^2 \right),$$ $$ -\log P(Z) = 0.5d\log 2\pi + 0.5 |Z|^2$$ 
+	* The quadratic term $\to$ L2 penalty on latent magnitude
 
 
 
