@@ -1,7 +1,9 @@
 ---
 tags:
-  - Research
-themes: Image Generation, Multi-Modal, Machine Learning
+  - ML
+  - Theory
+  - MultiModal
+  - Work
 created: 2025-12-14
 ---
 # Autoencoders
@@ -136,14 +138,39 @@ $$\log p_\phi(x)\ \ge\ \mathbb E_{q_\theta(z\mid x)}[\log p_\phi(x\mid z)] - \ma
 	* Minimize the KL divergence between the distribution of $z$ and the standard Gaussian $\mathcal N(0, I)$ 
 		* By Maximum Likelihood, minimize the negative log likelihood of $z$ as computed from a standard Gaussian.
 
-### Recap of Maximum Likelihood Estimtaion
-* Suppose we have
-	* Observations: $\{z_i\}_{i=1}^N$ ,
-	* A parametric family: $p_\psi(z)$ 
-* MLE says $\psi^* = \arg\max_\psi \sum_{i=1}^N \log p_\psi (z_i)$ 
-	* Equivalently, $\arg \min_\psi \mathbb E_{\hat{p}(z)}\left[-\log p_\psi (z)\right]$ 
-	* where $\hat p(z)$ is the **empirical** distribution of the samples
-* So: MLE minimizes the cross-entropy between the empirical distribution and the model distribution.
+## **Recap: Maximum Likelihood Estimation (MLE) and Maximum A Posteriori (MAP)**
+
+### **Frequentist viewpoint and (Log) likelihood**
+From the **frequentist** perspective, probability is defined via frequencies:
+- For discrete variables, probabilities are estimated by counting occurrences
+- For continuous variables, probability density is inferred from samples
+
+Suppose we observe a dataset: $D= \{x_1, x_2, \dots, x_N\}$ and assume the data are i.i.d. given model parameters $\theta$ .
+The **likelihood** of the dataset under the model is: $$P(D \mid \theta) = \prod_{k=1}^{N} P(x_k \mid \theta)$$
+Directly working with products of probabilities is numerically unstable (values become extremely small). Therefore, we maximize the **log-likelihood** instead:
+$$\log P(D \mid \theta) = \sum_{k=1}^{N} \log P(x_k \mid \theta)$$
+
+Because the logarithm is monotonic, maximizing likelihood and maximizing log-likelihood are equivalent.
+
+### Maximum Likelihood Estimation (MLE)
+We assume a *family of distributions* parameterized by $\theta$ (e.g. Gaussian with mean and variance), and choose parameters that best explain the observed data: $$
+\begin{align} 
+\hat \theta_{\text{MLE}} &= \arg \max_\theta \log P(D\mid\theta) \\
+&= \arg \max_\theta \sum_{k=1}^N \log P(x_i\mid\theta) \\
+&= \arg \min_\theta \frac{1}{N}\sum_{k=1}^N -\log P(x_i\mid\theta) \\
+&= \arg \min_\theta \mathbb E_{x \sim \hat p(x)} \left [- \log P(x\mid\theta) \right]
+\end{align}$$ where $\hat p(x)$ is the empirical data distribution, i.e. sampling from $\hat p(x)$ means uniformly pick a data point from the dataset.
+	Interpretation: the probability if I pick one observation uniformly at random from my **dataset**
+	Given dataset $D = \{ x_1, x_2, \dots x_N\}$, the empirical distribution: $$\hat p(x) = \frac{1}{N} \sum_{k=1}^N \delta (x - x_k)$$ 
+	where $\delta (\cdot)$ is the Dirac delta
+		$\delta(x - a)$ is zero everywhere except $x = a$ ; 
+		$\int_{-\infty}^{\infty} f(x)\,\delta(x-a)\,dx = f(a)$  
+
+i.e. MLE fits model parameters so that the model is most likely to generate the observed samples.
+
+### When MLE reduces to Mean Squared Error (MSE)
+Assume the model: $$P(x \mid \theta) = \mathcal{N}(x \mid \mu_\theta, \sigma^2 I) $$
+
 
 
 # Variational Auto Encoder
