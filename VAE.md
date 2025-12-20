@@ -134,9 +134,16 @@ $$\log p_\phi(x)\ \ge\ \mathbb E_{q_\theta(z\mid x)}[\log p_\phi(x\mid z)] - \ma
 * Training with statistical constraints:![[VAE-2.png]]
 	* Minimize the error between $X, \hat X$ 
 	* Minimize the KL divergence between the distribution of $z$ and the standard Gaussian $\mathcal N(0, I)$ 
-	* Minimize the negative log likelihood of $z$ as computed from a standard Gaussian.
+		* By Maximum Likelihood, minimize the negative log likelihood of $z$ as computed from a standard Gaussian.
 
-
+### Recap of Maximum Likelihood Estimtaion
+* Suppose we have
+	* Observations: $\{z_i\}_{i=1}^N$ ,
+	* A parametric family: $p_\psi(z)$ 
+* MLE says $\psi^* = \arg\max_\psi \sum_{i=1}^N \log p_\psi (z_i)$ 
+	* Equivalently, $\arg \min_\psi \mathbb E_{\hat{p}(z)}\left[-\log p_\psi (z)\right]$ 
+	* where $\hat p(z)$ is the **empirical** distribution of the samples
+* So: MLE minimizes the cross-entropy between the empirical distribution and the model distribution.
 
 
 # Variational Auto Encoder
