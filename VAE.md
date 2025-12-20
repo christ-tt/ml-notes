@@ -115,7 +115,7 @@ $$\log p_\phi(x)\ \ge\ \mathbb E_{q_\theta(z\mid x)}[\log p_\phi(x\mid z)] - \ma
 
 ### Prior of the Latent: Isotropic Gaussians
 * $P(Z) = \mathcal N(0, I)$ 
-* Maximally uninformative, simplest continous prior with strong math properties
+* Maximally uninformative, simplest continuous prior with strong math properties
 * The distribution is perfectly symmetric in every direction
 	* 
 	* No preferred direction, axis, and rotational invariance
@@ -130,7 +130,11 @@ $$\log p_\phi(x)\ \ge\ \mathbb E_{q_\theta(z\mid x)}[\log p_\phi(x\mid z)] - \ma
 	* Making partial sampling, dimensional slicing, hierarchical models mathematically clean
 * Analytic, closed-form, differentiable, and stable in high dimensions density, crucial for backprop gradients.
 	* $$ P(Z) = \frac{1}{\sqrt{(2\pi)^d}} \exp \left (-0.5 |Z|^2 \right),$$ $$ -\log P(Z) = 0.5d\log 2\pi + 0.5 |Z|^2$$ 
-	* The quadratic term $\to$ L2 penalty on latent magnitude
+	* The quadratic term $\to$ L2 penalty on latent magnitude, and by enforcing a Gaussian prior we penalize latent codes for drifting away from the origin.
+* Training with statistical constraints:![[VAE-2.png]]
+	* Minimize the error between $X, \hat X$ 
+	* Minimize the KL divergence between the distribution of $z$ and the standard Gaussian $\mathcal N(0, I)$ 
+	* Minimize the negative log likelihood of $z$ as computed from a standard Gaussian.
 
 
 
