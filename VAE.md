@@ -168,9 +168,54 @@ We assume a *family of distributions* parameterized by $\theta$ (e.g. Gaussian w
 
 i.e. MLE fits model parameters so that the model is most likely to generate the observed samples.
 
+### KL Divergence Equivalence of MLE
+Let $p_{\text{data}}(x)$ be the true, unknown data distribution, and $p(x \mid \theta)$ be the model distribution, then $$\hat \theta_{\text{MLE}} = \arg \min_\theta \mathrm{KL}\big(p_{\text{data}}(x) \,\|\, p(x\mid \theta)\big)$$
+where the expanded form $$\mathrm KL = \int p_{\text{data}}(x) \log \frac{p_{\text{data}}(x)}{p(x \mid \theta)} dx$$ 
+We already established $$
+\hat \theta_{\text{MLE}} = \arg \min_\theta \mathbb E_{x \sim \hat p(x)} \left [- \log P(x\mid\theta) \right] $$
+By **Law of Large Numbers** , we have as $N \to \infty$ , $\hat p(x) \to p_{\text{data}}(x)$ .
+So asymptotically, $\mathbb E_{x \sim \hat p(x)}[\cdot] \;\approx\; \mathbb E_{x \sim p_{\text{data}}(x)}[\cdot]$ 
+
+Now, $$
+\hat \theta_{\text{MLE}} = \arg \min_\theta \mathbb E_{x \sim p_{\text{data}}(x)} \left [- \log p(x\mid\theta) \right] $$
+which is essentially the **cross-entropy** between $p(x \mid \theta)$ and $p_{\text{data}}(x)$.
+Since the *entropy* of $p_{\text{data}}$ is **constant** w.r.t. $\theta$ , as the expectation only depends on the true distribution, not $\theta$, now, 
+	Recall basic logarithm and linearity of expectation $$\begin{align*} \log (\frac{A}{B}) &= \log(A) - \log (B) \\ \mathbb E[-\log A] & = \mathbb E[\log B - \log A - \log B] \\ &= \mathbb E[\log\frac{B}{A}] - \mathbb E[\log B] \end{align*}$$
+$$\begin{aligned} \mathbb E_{p_{\text{data}}}[-\log p(x\mid\theta)] &= \mathbb E_{p_{\text{data}}} \left[ \log \frac{p_{\text{data}}(x)}{p(x\mid\theta)} \right] - \mathbb E_{p_{\text{data}}}[\log p_{\text{data}}(x)] \\ &= \mathrm{KL}\big(p_{\text{data}}(x) \,\|\, p(x\mid \theta)\big) + H(p_{\text{data}}) \end{aligned}$$
+
+Now, with entropy of the data equals zero, we've established $$\hat \theta_{\text{MLE}} = \arg \min_\theta \mathbb E_{x \sim p_{\text{data}}(x)} \left [- \log p(x\mid\theta) \right] = \arg \min_\theta \mathrm{KL}\big(p_{\text{data}}(x) \,\|\, p(x\mid \theta)\big)$$
+MLE is equivalent to minimizing the KL divergence from the true data distribution to the model distribution.
+	It minimize *forward* KL, not symmetrically, potentially 
+		* Penalized heavily for missing data modes
+		* But not penalized much for placing mass where data doesn't exist 
+	This asymmetry matters a lot later for AE vs VAE vs diffusion vs GANs.
+
 ### When MLE reduces to Mean Squared Error (MSE)
 Assume the model: $$P(x \mid \theta) = \mathcal{N}(x \mid \mu_\theta, \sigma^2 I) $$
+The negative log-likelihood for a single sample is, let $c$ be constant, $$- \log P(x\mid \theta) = c \frac{1}{2\sigma^2}\|x-\mu_\theta\|^2$$
+Thus, $$\arg\max_\theta \log P(D \mid \theta) \;\;\Longleftrightarrow\;\; \arg\min_\theta \sum_{k=1}^N \|x_k - \mu_\theta\|^2$$
+Minimizing mean squared error is equivalent to MLE under isotropic Gaussian noise assumption, which is also the reason why MSE appears ubiquitously in regression, autoencoders, and reconstruction losses.
 
+
+### **When data is scarce: Maximum A Posteriori (MAP)**
+When the dataset is small (e.g., flipping a coin only a few times), MLE can overfit.
+In such cases, we introduce **prior knowledge** over parameters.
+
+Using Bayes’ rule:
+
+$$P(\theta \mid D) = \frac{P(D \mid \theta) P(\theta)}{P(D)} \;\;\propto\;\; P(D \mid \theta) P(\theta)$$
+- $P(\theta)$: prior distribution (encodes beliefs or regularization)
+- $P(D \mid \theta)$: likelihood
+- $P(\theta \mid D)$: posterior distribution
+
+MAP chooses the parameter that maximizes the posterior:$$\hat{\theta}_{\text{MAP}} = \arg\max_\theta P(\theta \mid D) = \arg\max_\theta \log P(D \mid \theta) + \log P(\theta)$$
+**Interpretation:**
+- MLE: data-only fitting
+- MAP: data + prior regularization
+
+In practice:
+- Gaussian prior → L2 regularization
+- Laplace prior → L1 regularization
 
 
 # Variational Auto Encoder
