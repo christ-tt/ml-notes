@@ -4,11 +4,458 @@ tags:
   - Theory
   - Work
 ---
+---
+tags:
+  - ML
+  - Theory
+  - Work
+---
 This is a **very deep and very common point of confusion**, and you’re right to pause on it.
 
 Let’s resolve it cleanly and precisely.
 
 ---
+
+
+This is a very important subtlety. The phrase
+
+  
+
+> _“all deviations between model prediction and reality will be treated as if they came from Gaussian noise”_
+
+> sounds casual, but it encodes **the entire statistical meaning of a loss function**.
+
+  
+
+I’ll unpack this carefully, distinguish the objects involved, and ground it with concrete real-world examples.
+
+---
+
+# **1️⃣ Three different things that are often conflated**
+
+  
+
+To understand “noise,” we must separate **three distinct concepts**:
+
+1. **Reality (unknown)**
+    
+    The true data-generating process
+    
+    x \sim p_{\text{data}}(x)
+    
+2. **Model prediction (deterministic part)**
+    
+    A function \hat x = f_\theta(\cdot)
+    
+3. **Noise model (likelihood assumption)**
+    
+    How we _choose to explain_ the difference between x and \hat x
+    
+
+  
+
+The key insight is:
+
+  
+
+> **Noise is not a statement about reality — it is a modeling assumption about errors.**
+
+---
+
+# **2️⃣ What “Gaussian noise” actually means**
+
+  
+
+When we write:
+
+p(x \mid \theta) = \mathcal N(x \mid \hat x_\theta, \sigma^2 I)
+
+  
+
+we are saying:
+
+  
+
+x = \hat x_\theta + \varepsilon \quad\text{where}\quad \varepsilon \sim \mathcal N(0, \sigma^2 I)
+
+  
+
+Interpretation:
+
+- The model predicts a _mean_
+    
+- Everything the model fails to explain is lumped into \varepsilon
+    
+- We **pretend** \varepsilon is Gaussian
+    
+
+  
+
+This is not claiming:
+
+- the world is Gaussian
+    
+- data is Gaussian
+    
+- errors are truly Gaussian
+    
+
+  
+
+It is saying:
+
+  
+
+> **We choose to penalize errors as if they were Gaussian.**
+
+---
+
+# **3️⃣ Noise model ≠ data distribution**
+
+  
+
+This distinction is crucial.
+
+  
+
+### **Data distribution**
+
+  
+
+p_{\text{data}}(x)
+
+- Can be multimodal
+    
+- Highly non-Gaussian
+    
+- Structured
+    
+- Unknown
+    
+
+  
+
+### **Noise model**
+
+  
+
+p(x \mid \hat x)
+
+- Local assumption
+    
+- Conditional on prediction
+    
+- Shapes the loss
+    
+
+  
+
+So even if data is complex:
+
+- We can still use Gaussian noise _locally_
+    
+
+---
+
+# **4️⃣ Why Gaussian leads to MSE (geometry of penalties)**
+
+  
+
+Gaussian likelihood:
+
+-\log p(x \mid \hat x) = \frac{1}{2\sigma^2}\|x - \hat x\|^2 + \text{const}
+
+  
+
+Meaning:
+
+- Small errors → small penalty
+    
+- Large errors → **quadratically** larger penalty
+    
+- Outliers dominate the loss
+    
+
+  
+
+This defines a **preference**:
+
+  
+
+> “I would rather make many small errors than one large one.”
+
+---
+
+# **5️⃣ Real-world examples**
+
+  
+
+## **Example 1: Measuring temperature with a sensor**
+
+- True temperature: T
+    
+- Measured value: x = T + \varepsilon
+    
+- Many independent small perturbations:
+    
+    - electrical noise
+        
+    - thermal fluctuations
+        
+    - rounding errors
+        
+    
+
+  
+
+By the **Central Limit Theorem**:
+
+\varepsilon \approx \mathcal N(0, \sigma^2)
+
+  
+
+Gaussian noise is _physically justified_ here.
+
+---
+
+## **Example 2: Linear regression on housing prices**
+
+  
+
+Model:
+
+\hat y = w^\top x
+
+  
+
+Reality:
+
+- Price affected by many unmodeled factors:
+    
+    - negotiation
+        
+    - timing
+        
+    - human behavior
+        
+    - legal quirks
+        
+    
+
+  
+
+We say:
+
+y = \hat y + \varepsilon
+
+  
+
+Gaussian noise means:
+
+  
+
+> “I don’t know the true structure, but I’ll penalize large price mistakes heavily.”
+
+---
+
+## **Example 3: Image reconstruction (autoencoder)**
+
+- Decoder predicts pixel intensities
+    
+- Errors come from:
+    
+    - texture
+        
+    - quantization
+        
+    - model capacity limits
+        
+    
+
+  
+
+Gaussian noise assumption means:
+
+  
+
+> “Every pixel deviation is equally important, and large pixel errors are very bad.”
+
+  
+
+This leads to:
+
+- Blurry images
+    
+- Averaging over multiple plausible outputs
+    
+
+---
+
+## **Example 4: When Gaussian noise is wrong**
+
+  
+
+Suppose:
+
+- Dataset has occasional gross corruption
+    
+- Most points are accurate, some are wild outliers
+    
+
+  
+
+Gaussian noise:
+
+- Overreacts to outliers
+    
+- Drags the model
+    
+
+  
+
+Better choice:
+
+- Laplace or Student-t noise
+    
+- Corresponding to L1 or robust losses
+    
+
+---
+
+# **6️⃣ What if the data is multimodal?**
+
+  
+
+Consider predicting the next frame in a video:
+
+- Many futures are possible
+    
+- Model predicts the _mean_
+    
+- Gaussian noise forces:
+    
+    - averaging across modes
+        
+    - blurry predictions
+        
+    
+
+  
+
+This is **not because the data is Gaussian**, but because:
+
+  
+
+> Gaussian noise says “all uncertainty is unimodal.”
+
+  
+
+This explains:
+
+- blurry VAEs
+    
+- blurry AEs
+    
+- regression-to-the-mean
+    
+
+---
+
+# **7️⃣ Noise as a statement of** 
+
+# **ignorance**
+
+  
+
+The noise model answers:
+
+- What errors are acceptable?
+    
+- How much do we punish large mistakes?
+    
+- Do we expect rare but extreme deviations?
+    
+
+  
+
+So:
+
+- Gaussian → smooth, average behavior
+    
+- Laplace → sparse large errors allowed
+    
+- Heavy-tailed → robust to corruption
+    
+- Mixture → structured uncertainty
+    
+
+---
+
+# **8️⃣ How this connects back to MLE and KL**
+
+  
+
+MLE minimizes:
+
+\mathrm{KL}(p_{\text{data}} \,\|\, p_\theta)
+
+  
+
+Your choice of likelihood determines:
+
+- the shape of p_\theta
+    
+- the geometry of the loss
+    
+- the kind of approximation you get
+    
+
+  
+
+So the loss is not arbitrary — it encodes your worldview.
+
+---
+
+# **9️⃣ Final takeaway**
+
+  
+
+> **Saying “we assume Gaussian noise” means:**
+
+> **we choose to treat everything our model cannot explain as random Gaussian deviations,**
+
+> **even if the real world is far more complex.**
+
+> **This choice defines the loss, the optimization behavior, and the kind of errors we care about.**
+
+  
+
+This is the deep reason why:
+
+- MSE blurs
+    
+- L1 is robust
+    
+- likelihood choice matters
+    
+- AE vs VAE behave differently
+    
+
+  
+
+If you want next, we can:
+
+- Compare noise models side by side geometrically
+    
+- Show how diffusion avoids explicit noise modeling
+    
+- Connect this to forward vs reverse KL visually
+    
+
+  
+
+Just tell me where to go next.
+
 
 # **1️⃣ Big picture: losses are** 
 
