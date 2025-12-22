@@ -138,6 +138,7 @@ $$\log p_\phi(x)\ \ge\ \mathbb E_{q_\theta(z\mid x)}[\log p_\phi(x\mid z)] - \ma
 	* Minimize the KL divergence between the distribution of $z$ and the standard Gaussian $\mathcal N(0, I)$ 
 		* By Maximum Likelihood, minimize the negative log likelihood of $z$ as computed from a standard Gaussian.
 
+
 ## **Recap: Maximum Likelihood Estimation (MLE) and Maximum A Posteriori (MAP)**
 
 ### **Frequentist viewpoint and (Log) likelihood**
@@ -216,6 +217,14 @@ MAP chooses the parameter that maximizes the posterior:$$\hat{\theta}_{\text{MAP
 In practice:
 - Gaussian prior → L2 regularization
 - Laplace prior → L1 regularization
+
+
+
+
+## Capturing Distribution
+
+Minimizing negative log likelihood of latent $z$ for our MLE (MSE/KL loss), we are minimizing $$ \min \sum_z - \log \mathcal N(z; 0, I) = \min 0.5 \sum_x |z|^2 = \min \sum_X | E(X; \theta)| ^2$$
+
 
 
 # Variational Auto Encoder
