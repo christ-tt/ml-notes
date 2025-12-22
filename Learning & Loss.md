@@ -42,60 +42,41 @@ where:
 - $\hat x_\theta$ is the model’s **point prediction** or **mean prediction**
 - This is **deterministic**, and no randomness at this point.
 
-To connect deterministic predictions to probabilistic learning, we introduce a **likelihood function**
+To connect deterministic predictions to probabilistic learning, we introduce a **likelihood function**: given parameters $\theta$, the model defines a probability **distribution** over possible observations $x$.
 $$p(x \mid \theta)$$
-Given parameters $\theta$, the model defines a probability **distribution** over possible observations $x$.
 
 In practice, we introduce **noise** (observation model)
 $$x = \hat x_\theta + \varepsilon$$
 
 we implicitly factor
 $$\theta \;\longrightarrow\; \hat x_\theta \;\longrightarrow\; x$$
-where the two stages are
+from deterministic model output, to likelihood distribution.
 
-
-
-In practice, this likelihood is almost always factorized as:
-
-$$\boxed{ p(x \mid \theta) \;\equiv\; p(x \mid \hat x_\theta) }$$
-
-  
-
-That is:
-- $\theta$ determines a deterministic prediction $\hat x_\theta$,
+We also have **reparameterization**: 
+$$p(x \mid \theta) \;\equiv\; p(x \mid \hat x_\theta)$$
+where
+* $\hat x_\theta$ is the man / location parameter
+* randomness comes from $\epsilon$, not from $\theta$, as $\theta$ determines a deterministic prediction $\hat x_\theta$,
 - all randomness in x is modeled **conditionally on** $\hat x_\theta$.
 
-This factorization is valid because:
+This factorization is valid because, once we know the model's prediction $\hat x_\theta$, the parameters $\theta$ no longer matter for generating $x$:
 $$x \;\perp\!\!\!\perp\; \theta \;\mid\; \hat x_\theta.$$
 
 ---
 
-## **4. Noise model: definition and role**
+## **More on Noise: definition and role**
 
-  
-
-The conditional distribution
-
+**Noise model**, or **observation model** is defined to be the conditional distribution $$
 p(x \mid \hat x_\theta)
-
-is called the **noise model** or **observation model**.
-
-  
-
-It specifies how deviations between reality and the model prediction are treated.
+$$It specifies how **deviations** between reality and the model prediction are treated.
 
   
-
 Equivalently, we assume:
-
-x = \hat x_\theta + \varepsilon, \quad \varepsilon \sim p_\varepsilon(\cdot),
+$$x = \hat x_\theta + \varepsilon, \quad \varepsilon \sim p_\varepsilon(\cdot)$$,
 
 where:
-
-- \varepsilon is an abstract noise variable,
-    
-- p_\varepsilon is chosen by the modeler.
-    
+- $\varepsilon$ is an abstract noise variable,
+- $p_\varepsilon$ is chosen by the modeler.
 
   
 
