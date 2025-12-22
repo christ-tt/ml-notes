@@ -5,11 +5,282 @@ tags:
   - Work
 ---
 ---
-tags:
+tag
   - ML
   - Theory
   - Work
 ---
+
+
+# **Part I — Likelihood, Noise, and the Modeling Viewpoint**
+
+## Learning and Loss, Overview**
+
+We consider supervised or self-supervised learning settings where we observe samples $x \in \mathcal X$ drawn i.i.d. from an **unknown data-generating distribution** $p_{\text{data}}(x)$ where,
+- $p_{\text{data}}(x)$ is **never known** and **never assumed to have a parametric form**.
+- Learning proceeds only via a finite dataset $D = \{x_1, x_2, \dots, x_N\} \sim p_{\text{data}}$.
+  
+
+The goal of learning is to construct a model $f_\theta$ that approximates the data, by minimizing expected **loss** under the true data distribution
+$$
+\theta^\star \approx \arg \min_\theta \mathbb E_{x \sim p_{\text{data}(x)}}\big [\mathcal L(x; \theta)\big]$$
+where the specific form of the loss $\mathcal L$ depends on how the data sample $x$ is structured and how the model is tasked to use it.
+* **Supervised Learning**: 
+	* $x = (\mu, y)$ where $\mu$ is the input and $y$ is the target; 
+	* the loss measured predictive error $\mathcal L(y, f_\theta(\mu))$
+* **Self-supervised Learning / Autoencoders**: 
+	* $x$ is both input and target; 
+	* the loss measures reconstruction fidelity $\mathcal L(x, \hat x_\theta)$. 
+
+---
+
+## **Likelihood: From Deterministic Prediction to Probability**
+
+Given $\theta \in \Theta$ denote model parameters, we have 
+$$\hat x_\theta = f_\theta(\cdot)$$
+where:
+- $\hat x_\theta$ is the model’s **point prediction** or **mean prediction**
+- This is **deterministic**, and no randomness at this point.
+
+To connect deterministic predictions to probabilistic learning, we introduce a **likelihood function**
+$$p(x \mid \theta)$$
+Given parameters $\theta$, the model defines a probability **distribution** over possible observations $x$.
+
+In practice, we introduce **noise** (observation model)
+$$x = \hat x_\theta + \varepsilon$$
+
+we implicitly factor
+$$\theta \;\longrightarrow\; \hat x_\theta \;\longrightarrow\; x$$
+where the two stages are
+
+
+
+In practice, this likelihood is almost always factorized as:
+
+$$\boxed{ p(x \mid \theta) \;\equiv\; p(x \mid \hat x_\theta) }$$
+
+  
+
+That is:
+- $\theta$ determines a deterministic prediction $\hat x_\theta$,
+- all randomness in x is modeled **conditionally on** $\hat x_\theta$.
+
+This factorization is valid because:
+$$x \;\perp\!\!\!\perp\; \theta \;\mid\; \hat x_\theta.$$
+
+---
+
+## **4. Noise model: definition and role**
+
+  
+
+The conditional distribution
+
+p(x \mid \hat x_\theta)
+
+is called the **noise model** or **observation model**.
+
+  
+
+It specifies how deviations between reality and the model prediction are treated.
+
+  
+
+Equivalently, we assume:
+
+x = \hat x_\theta + \varepsilon, \quad \varepsilon \sim p_\varepsilon(\cdot),
+
+where:
+
+- \varepsilon is an abstract noise variable,
+    
+- p_\varepsilon is chosen by the modeler.
+    
+
+  
+
+### **Key point**
+
+  
+
+> **The noise model is not a claim about the true data distribution.**
+
+> It is a modeling choice that defines how prediction errors are penalized.
+
+---
+
+## **5. Likelihood choice and induced loss**
+
+  
+
+Given a noise model, the learning objective is derived via the **negative log-likelihood**:
+
+\mathcal L(x, \hat x_\theta) \;\stackrel{\text{def}}{=}\; -\log p(x \mid \hat x_\theta).
+
+  
+
+Thus:
+
+  
+
+> **A loss function is simply a negative log-likelihood under an assumed noise model.**
+
+  
+
+### **Examples**
+
+|**Noise model** p(x \mid \hat x)|**Interpretation**|**Resulting loss**|
+|---|---|---|
+|\mathcal N(\hat x, \sigma^2 I)|Gaussian noise|Mean Squared Error|
+|Laplace(\hat x, b)|Heavy-tailed noise|L1 loss|
+|Bernoulli(\hat x)|Binary outcomes|Binary cross-entropy|
+|Categorical(\hat x)|Multiclass outcomes|Softmax cross-entropy|
+
+In each case:
+
+- the model outputs parameters of a distribution (e.g., mean, logits),
+    
+- the likelihood converts that output into a probability of observing x.
+    
+
+---
+
+## **6. Likelihood vs true data distribution**
+
+  
+
+It is essential to distinguish:
+
+  
+
+### **True data distribution**
+
+  
+
+p_{\text{data}}(x)
+
+- Unknown
+    
+- Potentially complex, multimodal, irregular
+    
+- Never explicitly parameterized or assumed
+    
+
+  
+
+### **Likelihood / noise model**
+
+  
+
+p(x \mid \hat x_\theta)
+
+- Fully chosen by the modeler
+    
+- Defines error sensitivity and robustness
+    
+- Determines the geometry of the loss
+    
+
+  
+
+Thus:
+
+  
+
+> **We do not assume a form for** p_{\text{data}}(x)**.**
+
+> **We only assume a form for how model errors are measured.**
+
+---
+
+## **7. Mental model (unifying intuition)**
+
+  
+
+The modeling pipeline can be summarized as:
+
+1. **Reality** generates data:
+    
+    x \sim p_{\text{data}}(x)
+    
+2. **Model** produces a deterministic prediction:
+    
+    \hat x_\theta = f_\theta(\cdot)
+    
+3. **Noise model** scores the discrepancy:
+    
+    \mathcal L(x, \hat x_\theta) = -\log p(x \mid \hat x_\theta)
+    
+4. **Learning** minimizes expected discrepancy over data.
+    
+
+  
+
+Crucially:
+
+  
+
+> We never model reality directly—
+
+> **we model how wrong we are allowed to be.**
+
+---
+
+## **8. Notational equivalence clarified**
+
+  
+
+Throughout the report, the following equivalence is used:
+
+  
+
+p(x \mid \theta) \;\equiv\; p_\theta(x) \;\equiv\; p(x \mid \hat x_\theta)
+
+  
+
+These notations emphasize different viewpoints:
+
+- p(x \mid \theta): likelihood / statistical conditioning
+    
+- p_\theta(x): family of distributions indexed by \theta
+    
+- p(x \mid \hat x_\theta): deterministic prediction + noise
+    
+
+  
+
+They refer to the **same object** unless explicitly stated otherwise.
+
+---
+
+## **9. Summary of Part I**
+
+- The true data distribution is unknown and unassumed.
+    
+- The model produces deterministic predictions.
+    
+- A likelihood (noise model) converts predictions into probabilities.
+    
+- Loss functions are negative log-likelihoods.
+    
+- All explicit probabilistic assumptions live in the noise model, not in reality.
+    
+
+---
+
+If you like, **Part II** can naturally follow with:
+
+- Maximum Likelihood Estimation as KL minimization
+    
+- Empirical vs true distributions
+    
+- Why different losses correspond to different divergences
+    
+
+  
+
+Just say when to continue.
+
 
 Great catch — this is a **pure notation question**, but it hides an important conceptual distinction that people often gloss over. Let’s clear it up cleanly.
 
