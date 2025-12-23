@@ -62,6 +62,16 @@ where
 This factorization is valid because, once we know the model's prediction $\hat x_\theta$, the parameters $\theta$ no longer matter for generating $x$:
 $$x \;\perp\!\!\!\perp\; \theta \;\mid\; \hat x_\theta.$$
 
+
+Our model, $f_\theta$ , is not trying to approximate $p_\text{data}$ directly. Instead, it approximates a **decision function** derived from the loss.
+Given our learning objective $$\theta^* = \arg \min_\theta \mathbb E_{x \sim p_{\text{data}}} \big [\mathcal L(x;\theta)\big]$$ our optimal predictor $$f^* = \arg \min_f \mathbb E_{x \sim p_{\text{data}}} \big [\mathcal L(x, f(x))\big]$$
+- MSE Loss - Gaussian Noise, the *function* is the conditional *mean* $$\begin{align*} \mathcal L(y, \hat y) &= \|y - \hat y\|^2 \\ f^*(\mu) &= \mathbb E[y\mid \mu] \end{align*}$$
+- MAE Loss - Laplace Noise, the *function* is the conditional *median* $$ \begin{align*} \mathcal L(y, \hat y) &= |y - \hat y| \\ f^*(\mu) &= \text{median}(y\mid \mu) \end{align*}$$
+- Cross-Entropy Loss, the network approximates the *entire conditional distribution* $$ \begin{align*} \mathcal L(y, \hat y) &= -\log \hat p(y) \\ f^*(\mu) &= p_{\text{data}}(y \mid \mu) \end{align*}$$
+
+i.e. our model approximates a target mapping that is implicitly defined by the data distribution and the learning objective.
+
+
 ---
 
 ## **More on Noise: definition and role**
