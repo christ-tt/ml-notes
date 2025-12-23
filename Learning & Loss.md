@@ -72,6 +72,9 @@ Given our learning objective $$\theta^* = \arg \min_\theta \mathbb E_{x \sim p_{
 i.e. our model approximates a target mapping that is implicitly defined by the data distribution and the learning objective.
 
 
+By maximizing likelihood, we are essentially finding the parameters that make the observed noise most plausible.
+
+
 ---
 
 ## **More on Noise: definition and role**
