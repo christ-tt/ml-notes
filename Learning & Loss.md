@@ -226,10 +226,10 @@ Thus there are not two separate objectives:
 ---
 
 
-## **8. Notational equivalence clarified**
+
 
   
-
+### Notations on $p_\theta(x)$ and $p(x\mid \theta)$
 Throughout the report, the following equivalence is used:
 
 $$p(x \mid \theta) \;\equiv\; p_\theta(x) \;\equiv\; p(x \mid \hat x_\theta)$$
@@ -238,358 +238,77 @@ $$p(x \mid \theta) \;\equiv\; p_\theta(x) \;\equiv\; p(x \mid \hat x_\theta)$$
 
 These notations emphasize different viewpoints:
 
-- $p(x \mid \theta)$: likelihood / statistical conditioning
+- $p(x \mid \theta)$: likelihood / statistical conditioning:
+	- The probability (density) of observing $x$, **given** model parameters $\theta$.
+	- This notation emphasizes:
+		- The **data-generation story**
+		- Classical statistics / MLE / MAP derivations
+	- Typical context:
+		- Likelihood functions
+		- Bayesian inference
+		- Parameter estimation
 - $p_\theta(x)$: family of distributions indexed by $\theta$
+	- A **family of distributions indexed by** $\theta$, evaluated at $x$
+	- This notation emphasizes
+		- The **model as a function**
+		- The **space of distributions**
+		- Optimization and geometry
+	- Context
+		- Information geometry
+		- KL divergence: $\mathrm{KL}(p_{\text{data}} \,\|\, p_\theta)$
+		- Generative modeling
 - $p(x \mid \hat x_\theta)$: deterministic prediction + noise
 
-  
+    
+When we are in an MLE (frequentist) setting and $\theta$ is not treated as a random variable, $p(x\mid \theta), p_\theta(x)$ are mathematically equivalent.
 
-They refer to the **same object** unless explicitly stated otherwise.
+In **Bayesian settings**, $\theta$ is now a random variable with a prior $p(\theta)$, then we mostly use $p(x\mid\theta)$ as the likelihood, avoiding possibly ambiguous $p_\theta(x)$.
+
 
 ---
 
 
-## **Short answer**
 
-  
+### Maximizing Likelihood: Parameters that make Observed Noise most Plausible
 
-> **There is no mathematical difference in general.**
+We assume a **conditional distribution** / **likelihood** / **observation model** / **noise model** :
 
-> The difference between p(x\mid\theta) and p_\theta(x) is **conceptual and notational**, not probabilistic.
+$$p(x \mid \theta) \quad\text{or equivalently}\quad p(x \mid \hat x_\theta)$$
 
-  
+which answers exactly one question: Given my model’s prediction, how should deviations from it be penalized?
 
-They are two ways of writing **the same model**, emphasizing different viewpoints.
 
----
+MLE optimizes:
 
-## **1️⃣ What** p(x\mid\theta) **emphasizes (statistical view)**
-
-  
-
-p(x \mid \theta)
-
-  
-
-means:
-
-  
-
-> “The probability (density) of observing x, **given** model parameters \theta.”
-
-  
-
-This notation emphasizes:
-
-- \theta as a **conditioned-on quantity**
-    
-- The **data-generation story**
-    
-- Classical statistics / MLE / MAP derivations
-    
-
-  
-
-Typical context:
-
-- Likelihood functions
-    
-- Bayesian inference
-    
-- Parameter estimation
-    
-
-  
-
-Example:
-
-- Coin flip: p(x\mid\theta) with \theta = P(H)
-    
-- Regression: p(y\mid x, \theta)
-    
-
----
-
-## **2️⃣ What** p_\theta(x) **emphasizes (model family view)**
-
-  
-
-p_\theta(x)
-
-  
-
-means:
-
-  
-
-> “A **family of distributions indexed by** \theta, evaluated at x.”
-
-  
-
-This notation emphasizes:
-
-- The **model as a function**
-    
-- The **space of distributions**
-    
-- Optimization and geometry
-    
-
-  
-
-Typical context:
-
-- Information geometry
-    
-- KL divergence
-    
-- Generative modeling
-    
-- Deep learning papers
-    
-
-  
-
-Example:
-
-- “Minimize \mathrm{KL}(p_{\text{data}} \,\|\, p_\theta)”
-    
-- “Our model distribution p_\theta(x)”
-    
-
----
-
-## **3️⃣ Why they are mathematically equivalent**
-
-  
-
-Formally:
-
-p_\theta(x) \;\equiv\; p(x\mid\theta)
-
-  
-
-as long as:
-
-- \theta is not treated as a random variable
-    
-- We are in an MLE (frequentist) setting
-    
-
-  
-
-The two notations differ only in **what we mentally treat as fixed**.
-
----
-
-## **4️⃣ When the distinction** 
-
-## **does**
-
-##  **matter**
-
-  
-
-The difference becomes meaningful in **Bayesian settings**.
-
-  
-
-### **Bayesian case**
-
-- \theta is now a random variable
-    
-- We have a prior p(\theta)
-    
-
-  
-
-Then:
-
-- p(x\mid\theta): likelihood
-    
-- p_\theta(x): less commonly used (can be ambiguous)
-    
-
-  
-
-In Bayesian notation, we usually **avoid** p_\theta(x) to prevent confusion, because \theta is no longer just an index.
-
----
-
-## **5️⃣ How this connects to your earlier questions**
-
-  
-
-### **Why we move from** p(x\mid\theta) **to** p_\theta(x) **in KL**
-
-  
-
-When we write:
-
-\mathrm{KL}(p_{\text{data}} \,\|\, p_\theta)
-
-  
-
-we are thinking:
-
-- “Pick a distribution from the family indexed by \theta”
-    
-- “Compare two distributions geometrically”
-    
-
-  
-
-This is **not** about conditioning — it’s about **projection in distribution space**.
-
----
-
-## **6️⃣ Concrete example (coin flip)**
-
-- Likelihood view:
-    
-    p(x\mid\theta) = \theta^x (1-\theta)^{1-x}
-    
-- Model-family view:
-    
-    p_\theta(x) \quad \text{is the Bernoulli distribution with parameter } \theta
-    
-
-  
-
-Same object, different emphasis.
-
----
-
-## **7️⃣ One-sentence takeaway**
-
-  
-
-> p(x\mid\theta) **and** p_\theta(x) **denote the same probability distribution;**
-
-> **the former emphasizes conditioning and likelihood, while the latter emphasizes a family of distributions indexed by parameters.**
-
-  
-
-Once you see this, the notational shifts in MLE, KL divergence, AE, and VAE discussions should feel much less mysterious.
-
-Short answer: **yes, essentially** — with one important nuance.
-
-  
-
-> **In standard MLE-based learning, we never assume the true data distribution directly.**
-
-> **All explicit assumptions are placed on the likelihood / noise model (and optionally on priors), not on** p_{\text{data}}(x)**.**
-
-  
-
-Now let’s make this precise and remove any remaining ambiguity.
-
----
-
-## **1️⃣ What we do** 
-
-## **not**
-
-##  **assume**
-
-  
-
-We **never** assume:
-
-- The true data distribution p_{\text{data}}(x) is Gaussian
-    
-- Or Bernoulli
-    
-- Or Poisson
-    
-- Or even belongs to our model family
-    
-
-  
-
-In fact:
-
-- p_{\text{data}}(x) is **unknown**
-    
-- It may be irregular, multimodal, heavy-tailed, structured
-    
-- We only ever see **samples**
-    
-
-  
-
-So there is **no place in MLE** where we say:
-
-  
-
-> “The real world is Gaussian.”
-
-  
-
-That statement is _never_ made.
-
----
-
-## **2️⃣ What we** 
-
-## **do**
-
-##  **assume (and this is the key)**
-
-  
-
-We assume a **conditional distribution**:
-
-p(x \mid \theta) \quad\text{or equivalently}\quad p(x \mid \hat x_\theta)
-
-  
-
-This is the **likelihood**, also called the **observation model** or **noise model**.
-
-  
-
-It answers exactly one question:
-
-  
-
-> **Given my model’s prediction, how should deviations from it be penalized?**
-
-  
-
-That is all.
-
----
-
-## **3️⃣ Why this is enough for learning**
-
-  
-
-# **MLE optimizes:**
-
-#   
-
+$$
 \hat\theta \arg\max_\theta \mathbb E_{x\sim p_{\text{data}}} [\log p(x\mid\theta)]
-
-  
+$$
 
 This can be rewritten as:
 
-\arg\min_\theta \mathrm{KL}\big( p_{\text{data}}(x) \;\|\; p_\theta(x) \big)
-
-  
-
+$$\arg\min_\theta \mathrm{KL}\big( p_{\text{data}}(x) \;\|\; p_\theta(x) \big)
+$$
 But crucially:
-
 - This is a **projection** of the unknown truth onto our model family
-    
 - Not an assumption that the truth lies inside the family
-    
 
-  
 
-So the modeling story is:
+Let's define the variables formally:
+- **$x$ (Observation):** The real data (noisy, stochastic).
+- **$\theta$ (Parameters):** The output of our neural network $f(\cdot)$. This is **deterministic**.
+- **$\varepsilon$ (Noise):** The random variable bridging the two.
 
-  
+
+We model the observation $x$ as a deterministic core plus some probabilistic noise:
+
+$$x = \text{Model}(\theta) \oplus \text{Noise}(\varepsilon)$$
+
+We cannot control the noise, but we can control $\theta$. Therefore, we ask:
+
+> _"Given that I observed $x$, what must $\theta$ have been to make this observation probable?"_
+
+This is the **Likelihood** $p(x|\theta)$.
+
 
 > _Reality generates samples →_
 
