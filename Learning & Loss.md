@@ -225,38 +225,6 @@ Thus there are not two separate objectives:
 
 ---
 
-## **7. Mental model (unifying intuition)**
-
-  
-
-The modeling pipeline can be summarized as:
-
-1. **Reality** generates data:
-    
-    x \sim p_{\text{data}}(x)
-    
-2. **Model** produces a deterministic prediction:
-    
-    \hat x_\theta = f_\theta(\cdot)
-    
-3. **Noise model** scores the discrepancy:
-    
-    \mathcal L(x, \hat x_\theta) = -\log p(x \mid \hat x_\theta)
-    
-4. **Learning** minimizes expected discrepancy over data.
-    
-
-  
-
-Crucially:
-
-  
-
-> We never model reality directly—
-
-> **we model how wrong we are allowed to be.**
-
----
 
 ## **8. Notational equivalence clarified**
 
@@ -285,38 +253,6 @@ They refer to the **same object** unless explicitly stated otherwise.
 
 ---
 
-## **9. Summary of Part I**
-
-- The true data distribution is unknown and unassumed.
-    
-- The model produces deterministic predictions.
-    
-- A likelihood (noise model) converts predictions into probabilities.
-    
-- Loss functions are negative log-likelihoods.
-    
-- All explicit probabilistic assumptions live in the noise model, not in reality.
-    
-
----
-
-If you like, **Part II** can naturally follow with:
-
-- Maximum Likelihood Estimation as KL minimization
-    
-- Empirical vs true distributions
-    
-- Why different losses correspond to different divergences
-    
-
-  
-
-Just say when to continue.
-
-
-Great catch — this is a **pure notation question**, but it hides an important conceptual distinction that people often gloss over. Let’s clear it up cleanly.
-
----
 
 ## **Short answer**
 
