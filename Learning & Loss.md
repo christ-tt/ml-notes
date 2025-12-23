@@ -14,7 +14,7 @@ tag
 
 # **Part I — Likelihood, Noise, and the Modeling Viewpoint**
 
-## Learning and Loss, Overview**
+## Learning and Loss, Overview
 
 We consider supervised or self-supervised learning settings where we observe samples $x \in \mathcal X$ drawn i.i.d. from an **unknown data-generating distribution** $p_{\text{data}}(x)$ where,
 - $p_{\text{data}}(x)$ is **never known** and **never assumed to have a parametric form**.
@@ -181,6 +181,44 @@ Thus:
 > **We do not assume a form for** p_{\text{data}}(x)**.**
 
 > **We only assume a form for how model errors are measured.**
+
+
+**Modeling** is **not** dictated by the data; we use the following for data-generation $$y = f_\theta(\mu) + \epsilon$$ where the only assumptions we make
+- $f_\theta(\mu)$: systematic, predicable part
+- $\epsilon$: everything we cannot or choose not to model
+which is not two objectives, but a decomposition of responsibility.
+
+Noise means how we choose to interpret discrepancies between model prediction and data; different assumptions of the distribution of the noise are how we *think* we should interpret the errors. 
+* For example, normal means small errors are common, large errors are increasingly unlikely; errors are symmetric, and errors should be penalized quadratically, *L2*
+* Laplace noise assume mostly clean data, but occasionally huge outliers *L1* 
+
+**Unify output-fitting and noise**
+From the model $$y = f_\theta(\mu) + \epsilon$$
+we get the likelihood $$p(y\mid \mu, \theta) = \mathcal N(y \mid f_\theta(\mu), \sigma^2)$$answering: how plausible is the observed output given the model prediction?
+
+Negative log-likehood is exactly MSE, and there's only a single objective $$-\log p(y \mid u, \theta) \propto \|y - f_\theta(u)\|^2$$ $$ \arg\min_\theta \sum_i \|y_i - f_\theta(u_i)\|^2$$
+- Fits the outputs = make likelihood high
+- Handle noise = define how deviations are penalized.
+
+Given parameters $\theta$, the model produces either 
+- a point prediction $\hat x_\theta=f_\theta(\cdot)$ (regression / AE) or 
+- distribution parameters $\eta_\theta(\cdot)$ (classification / LLM). 
+We then specify an *observation/noise* model $p(x\mid \hat x_\theta)$ (or $p(x\mid \eta_\theta)$), which is the only place where “noise” enters. 
+Training chooses $\theta$ to maximize the probability of the observed dataset $D=\{x_i\}_{i=1}^N$_:_
+
+$$\hat\theta=\arg\max_\theta \log p(D\mid \theta)=\arg\max_\theta \sum_{i=1}^N \log p(x_i\mid \theta) \equiv \arg\max_\theta \sum_{i=1}^N \log p(x_i\mid \hat x_{\theta,i}),$$
+
+where $\hat x_{\theta,i}=f_\theta(\cdot)$ is the model prediction for sample i. Defining the per-sample loss as the **negative log-likelihood**,
+$$
+\mathcal L(x_i;\theta)\;\stackrel{\text{def}}{=}\;-\log p(x_i\mid \theta)=-\log p(x_i\mid \hat x_{\theta,i}),
+$$
+the same objective becomes empirical risk minimization:
+
+$$\hat\theta=\arg\min_\theta \sum_{i=1}^N \mathcal L(x_i;\theta).$$
+
+Thus there are not two separate objectives: 
+- “fit outputs” is achieved by making $p(x_i\mid \hat x_{\theta,i})$ large (so $x_i$ is close to $\hat x_{\theta,i}$), 
+- while “handling noise” is simultaneously encoded by the chosen form of $p(\cdot\mid \hat x)$, which determines _how_ deviations are penalized (e.g., Gaussian noise $p(x\mid\hat x)=\mathcal N(\hat x,\sigma^2I)$ yields $\mathcal L\propto \|x-\hat x\|^2$; categorical $p(x_t\mid x_{<t})$ yields cross-entropy).
 
 ---
 
