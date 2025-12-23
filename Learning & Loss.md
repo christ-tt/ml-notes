@@ -232,20 +232,15 @@ Thus there are not two separate objectives:
 
 Throughout the report, the following equivalence is used:
 
-  
-
-p(x \mid \theta) \;\equiv\; p_\theta(x) \;\equiv\; p(x \mid \hat x_\theta)
+$$p(x \mid \theta) \;\equiv\; p_\theta(x) \;\equiv\; p(x \mid \hat x_\theta)$$
 
   
 
 These notations emphasize different viewpoints:
 
-- p(x \mid \theta): likelihood / statistical conditioning
-    
-- p_\theta(x): family of distributions indexed by \theta
-    
-- p(x \mid \hat x_\theta): deterministic prediction + noise
-    
+- $p(x \mid \theta)$: likelihood / statistical conditioning
+- $p_\theta(x)$: family of distributions indexed by $\theta$
+- $p(x \mid \hat x_\theta)$: deterministic prediction + noise
 
   
 
