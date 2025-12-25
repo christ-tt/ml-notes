@@ -170,9 +170,7 @@ p(x \mid \hat x_\theta)
 
 Thus:
   
-
 > **We do not assume a form for** p_{\text{data}}(x)**.**
-
 > **We only assume a form for how model errors are measured.**
 
 ---
