@@ -12,10 +12,12 @@ We consider supervised or self-supervised learning settings where we observe sam
 - Learning proceeds only via a finite dataset $D = \{x_1, x_2, \dots, x_N\} \sim p_{\text{data}}$.
   
 
-The goal of learning is to construct a **model** $f_\theta$ that **approximates** the data, by minimizing expected **loss** under the true data distribution
+The goal of learning is to construct a **model** $f_\theta$ that **approximates** the data, by 
+- Maximizing Likelihood: minimizing KL divergence;
+- Minimizing Loss under the true data distribution.
 $$
 \theta^\star \approx \arg \min_\theta \mathbb E_{x \sim p_{\text{data}(x)}}\big [\mathcal L(x; \theta)\big]$$
-We'll soon discuss what **loss** really means.
+
 
 
 ## Likelihood
