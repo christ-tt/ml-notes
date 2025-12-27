@@ -25,26 +25,82 @@ Our model consists of two coupled components:
 - The Parameter Mapping (**Deterministic**): A function $f_\theta$ that maps input context $x$ to distribution **parameters** $\psi$.
 - The Sampling Distribution (**Stochastic**): A specific probability density form $p(\cdot \mid \psi)$ that defines how the target $y$ is distributed given those parameters ($f_\theta$).
 
+## Workflow
+
+We never assume the *true* data distribution $p_{\text{data}}(y \mid x)$. Instead, we assume a *conditional* distribution $p(y \mid \psi)$, the output observed $y$ conditioned on our fixed parameter $\theta$ and input conditioned information (context) $x$.
+
+This is equivalent to drawing from the distribution that we (as the modeler) assume, with the sufficient statistics that our deterministic base model outputs given the input $x$. Below is a concrete breakdown.
+
+1. **Input**($x$): the context. 
+    e.g. "The cat sits on", or features for our regression;
+2. **Model**($f_\theta$): the deterministic calculation.
+3. **Sufficient Statistics**($\psi$): the result of the calculation.
+    e.g. logits of the next token over vocabularty, or probability of dog or cat [0.1, 0.9]
+4. **Assumed Distribution**($p(y \mid \psi)$): the template.
+    e.g. We assume: "The next word follows a Categorical distribution defined by $\psi$."
+5. **Sampling**: the stochastic step; drawing from that distribution.
+6. **Output**($y$): the *realization*.
+    e.g. Result: next token *'mat'*, class *'dog'*...
+ 
 ## Likelihood, Sampling Distribution, Noise, Observation Model
+
+### Motivation: Why We need Stochastic
+
+The necessity of introducing a stochastic part (the likelihood/noise model) essentially boils down to one fact: **The world is not a mathematical function.**
+A mathematical function  is a **One-to-One** or **Many-to-One** mapping. It takes an input and produces exactly one fixed output.
+
+However, most real-world problems are **One-to-Many**.
+
+* **Deterministic:** Captures the **Rules**. (e.g., "Grammar," "Cats have ears," "Gravity").
+* **Likelihood/Noise (Stochastic):** Captures the **Variations**. (e.g., "Which word comes next," "The color of the cat," "The measurement error").
+
+Without the stochastic part, our model is a rigid memorizer that collapses the rich, ambiguous world into a single, possibly incorrect, point.
+
+#### 1. The "One-to-Many" Problem (Ambiguity)
+
+In almost all interesting tasks, the input  does not contain enough information to perfectly determine the output .
+
+* **Example (LLM):** If the input is "The capital of...", the output is deterministic ("Paris" or "London" etc). But if the input is *"Once upon a time,"* the output could be *"there was a princess"* OR *"in a land far away"* OR *"a dragon woke up."*
+* **The Conflict:** If we forced  to be purely deterministic, it would have to pick **one** specific word (likely the average word, which is gibberish, or the most common one).
+* **The Solution:** By predicting a **distribution** (stochastic), we assign probabilities to *all* valid options. This allows the model to capture the reality that multiple answers are correct.
+
+#### 2. Unobserved Variables (The "Hidden State")
+
+We rarely see the full state of the universe. We only see partial observations.
+
+* **Example (Physics/Coin Toss):** A coin toss is technically deterministic physics. If you knew the wind speed, exact force, air density, and angular momentum, you could calculate the result.
+* **The Reality:** We don't know those hidden variables.
+* **The Solution:** We model all those unobserved, complex hidden factors as **random noise** (). The "Stochastic Part" is essentially a trash bin where we dump everything our model cannot see or measure.
+
+#### 3. The Generative Requirement (Diversity)
+
+This is specific to Generative AI (Images, Text). If our model is purely deterministic:
+
+For example, every time we run the generation process for a picture of a *dog*, we will get **exact same pixel-perfect dog**, while we want to generate *new*, *different* dogs. Therefore, we introduce a random seed (Latent variable or noise ).
+
+Now, by sampling different random noise, we can produce infinite variations of dogs.
+
+
+### Notation
 
 All referring to the same thing.
 
-### Sampling Distribution
+#### Sampling Distribution
 * Context: Inference
 * Definition: The probability distribution we draw from to generate new data.
 * Inution: *Generator*
 
-### Likelihood:
+#### Likelihood:
 * Context: Training
 * Definition: The probability *score* we assign to real data given our parameters.
 * Inituition: *Scoreboard*
 
-### Observation Model
+#### Observation Model
 * Context: Architecutre
 * Definition: The design choice we make. (e.g. using Gaussian head)
 * Intuition: *Blueprint* 
 
-### Noise Model
+#### Noise Model
 * Context: Physics
 * Definition: The source of randomness that explains why $y$ isn't exactly $f_\theta(x)$.
 * Intuition: *Fuzz*
@@ -66,6 +122,11 @@ Noise means how we choose to interpret discrepancies between model prediction an
 * For example, normal means small errors are common, large errors are increasingly unlikely; errors are symmetric, and errors should be penalized quadratically, *L2*
 * Laplace noise assume mostly clean data, but occasionally huge outliers *L1* 
 
+By assuming the conditional distribution, we are imposing our belief about the nature of the error.
+
+If we assume Gaussian: We are saying "The model's prediction is the average, and errors are symmetric noise."
+
+If we assume Categorical: We are saying "The world is a set of discrete choices, and the model predicts preference scores."
 
 
 
@@ -473,52 +534,7 @@ This is the difference between an **Artist** and a **Critic**.
 
 
 
-The necessity of introducing a stochastic part (the likelihood/noise model) essentially boils down to one fact: **The world is not a mathematical function.**
 
-A mathematical function  is a **One-to-One** or **Many-to-One** mapping. It takes an input and produces exactly one fixed output.
-However, most real-world problems are **One-to-Many**.
-
-Here are the three fundamental reasons why we **must** introduce the stochastic component.
-
-### 1. The "One-to-Many" Problem (Ambiguity)
-
-In almost all interesting tasks, the input  does not contain enough information to perfectly determine the output .
-
-* **Example (LLM):** If the input is "The capital of...", the output is deterministic ("Paris" or "London" etc). But if the input is *"Once upon a time,"* the output could be *"there was a princess"* OR *"in a land far away"* OR *"a dragon woke up."*
-* **The Conflict:** If we forced  to be purely deterministic, it would have to pick **one** specific word (likely the average word, which is gibberish, or the most common one).
-* **The Solution:** By predicting a **distribution** (stochastic), we assign probabilities to *all* valid options. This allows the model to capture the reality that multiple answers are correct.
-
-### 2. Unobserved Variables (The "Hidden State")
-
-We rarely see the full state of the universe. We only see partial observations.
-
-
-* **Example (Physics/Coin Toss):** A coin toss is technically deterministic physics. If you knew the wind speed, exact force, air density, and angular momentum, you could calculate the result.
-* **The Reality:** We don't know those hidden variables.
-* **The Solution:** We model all those unobserved, complex hidden factors as **random noise** (). The "Stochastic Part" is essentially a trash bin where we dump everything our model cannot see or measure.
-
-### 3. The Generative Requirement (Diversity)
-
-This is specific to Generative AI (Images, Text).
-If your model is purely deterministic:
-
-
-
-Every time you run this code, you will get the **exact same pixel-perfect dog**.
-
-* **The Goal:** We want to generate *new* dogs, *different* dogs.
-* **The Solution:** We introduce a random seed (Latent variable  or noise ).
-
-
-
-Now, by sampling different random noise , we can produce infinite variations of dogs.
-
-### Summary: The Divide
-
-* ** (Deterministic):** Captures the **Rules**. (e.g., "Grammar," "Cats have ears," "Gravity").
-* **Likelihood/Noise (Stochastic):** Captures the **Variations**. (e.g., "Which word comes next," "The color of the cat," "The measurement error").
-
-Without the stochastic part, your model is a rigid memorizer that collapses the rich, ambiguous world into a single, possibly incorrect, point.
 
 ### Next Step
 
