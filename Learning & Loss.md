@@ -15,9 +15,17 @@ tags:
 
 ## Model
 
-We define the neural network as a deterministic function mapping inputs to distribution parameters.
+We define a **Model** as a **Parametric Family of Probability Distributions**.
 
-- $\theta$ (Model Parameters): 
+Let $$
+\mathcal{P} = \{p_\theta: \theta \in \Theta\}
+$$
+be a family of probability distributions indexed by parameters $\theta$ in a parameter space $\Theta$.
+
+Our model consists of two coupled components:
+- The Parameter Mapping (**Deterministic**): A function $f_\theta$ that maps input context $x$ to distribution parameters $\phi$.
+- The Sampling Distribution (**Stochastic**): A specific probability density form $p(\cdot \mid \phi)$ that defines how the target $y$ is distributed given those parameters.
+
 
 ### Noise and Likelihood
 
