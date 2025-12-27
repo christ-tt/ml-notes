@@ -81,8 +81,18 @@ For example, every time we run the generation process for a picture of a *dog*, 
 Now, by sampling different random noise, we can produce infinite variations of dogs.
 
 
-### Notation
+### Likelihood, Sampling, and Noise: The Rosetta Stone
+| Term | Context | Math Form | Definition & Intuition |
+| --- | --- | --- | --- |
+| **Observation Model** | Architecture | $y \sim D(\psi)$ | "The Blueprint. The design choice defining the family of distribution (e.g. *"We assume the head outputs Gaussian paramaeters"*). |
+| **Likelihood** | Training |  |  |
+|  |  |  |  |
+|  |  |  |  |
 
+
+Likelihood,Training,L(θ)=p(yreal​∣ψ),The Scoreboard. The probability density assigned to observed real data given the model's current parameters. Used to compute gradients.
+Sampling Distribution,Inference,ynew​∼p(⋅∣ψ),The Generator. The probability cloud from which we draw samples to generate new data (hallucinating plausible outputs).
+Noise Model,Physics,ε∼pε​(⋅),The Fuzz. The source of stochasticity explaining why y=fθ​(x). It defines how deviations are penalized.
 All referring to the same thing.
 
 #### Sampling Distribution
