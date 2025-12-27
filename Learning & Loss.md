@@ -6,16 +6,18 @@ tags:
 ---
 
 
-# Learning
-## Framework
-### Data
-- The **Real** Distribution: 
-We consider supervised or self-supervised learning settings where we observe samples $x \in \mathcal X$ drawn i.i.d. from an **unknown data-generating distribution** $p_{\text{data}}(x)$ where,
-- $p_{\text{data}}(x)$ is **never known** and **never assumed to have a parametric form**.
-- Learning proceeds only via a finite dataset $D = \{x_1, x_2, \dots, x_N\} \sim p_{\text{data}}$.
- 
+# Framework
+## Data
 
-### Model
+- The **Real** Distribution: We consider supervised or self-supervised learning settings where we observe samples $x \in \mathcal{X}$ drawn i.i.d. from an **unknown data-generating distribution** $p_{\text{data}}(x)$, where we **never** assume a *paramaetric* form for $p_{\text{data}}$ itself.
+
+- The **Dataset** $(\mathcal{D})$: A finite set of samples $D = \{x_1, x_2, \dots, x_N\} \sim p_{\text{data}}$ observed from the real distribution.
+
+## Model
+
+We define the neural network as a deterministic function mapping inputs to distribution parameters.
+
+- $\theta$ (Model Parameters): 
 
 ### Noise and Likelihood
 
@@ -976,3 +978,85 @@ Without the stochastic part, your model is a rigid memorizer that collapses the 
 ### Next Step
 
 This concludes the theoretical framework. Would you like to proceed to the **Implementation Phase**? We can start by writing the skeleton code for a VAE or a simple Likelihood-based regression in PyTorch to see how these math symbols translate to `torch.distributions` and `loss.backward()`.
+
+## **Recap: Maximum Likelihood Estimation (MLE) and Maximum A Posteriori (MAP)**
+
+### **Frequentist viewpoint and (Log) likelihood**
+From the **frequentist** perspective, probability is defined via frequencies:
+- For discrete variables, probabilities are estimated by counting occurrences
+- For continuous variables, probability density is inferred from samples
+
+Suppose we observe a dataset: $D= \{x_1, x_2, \dots, x_N\}$ and assume the data are i.i.d. given model parameters $\theta$ .
+The **likelihood** of the dataset under the model is: $$P(D \mid \theta) = \prod_{k=1}^{N} P(x_k \mid \theta)$$
+Directly working with products of probabilities is numerically unstable (values become extremely small). Therefore, we maximize the **log-likelihood** instead:
+$$\log P(D \mid \theta) = \sum_{k=1}^{N} \log P(x_k \mid \theta)$$
+
+Because the logarithm is monotonic, maximizing likelihood and maximizing log-likelihood are equivalent.
+
+### Maximum Likelihood Estimation (MLE)
+We assume a *family of distributions* parameterized by $\theta$ (e.g. Gaussian with mean and variance), and choose parameters that best explain the observed data: $$
+\begin{align} 
+\hat \theta_{\text{MLE}} &= \arg \max_\theta \log P(D\mid\theta) \\
+&= \arg \max_\theta \sum_{k=1}^N \log P(x_i\mid\theta) \\
+&= \arg \min_\theta \frac{1}{N}\sum_{k=1}^N -\log P(x_i\mid\theta) \\
+&= \arg \min_\theta \mathbb E_{x \sim \hat p(x)} \left [- \log P(x\mid\theta) \right]
+\end{align}$$ where $\hat p(x)$ is the empirical data distribution, i.e. sampling from $\hat p(x)$ means uniformly pick a data point from the dataset.
+	Interpretation: the probability if I pick one observation uniformly at random from my **dataset**
+	Given dataset $D = \{ x_1, x_2, \dots x_N\}$, the empirical distribution: $$\hat p(x) = \frac{1}{N} \sum_{k=1}^N \delta (x - x_k)$$ 
+	where $\delta (\cdot)$ is the Dirac delta
+		$\delta(x - a)$ is zero everywhere except $x = a$ ; 
+		$\int_{-\infty}^{\infty} f(x)\,\delta(x-a)\,dx = f(a)$  
+
+i.e. MLE fits model parameters so that the model is most likely to generate the observed samples.
+
+### KL Divergence Equivalence of MLE
+Let $p_{\text{data}}(x)$ be the true, unknown data distribution, and $p(x \mid \theta)$ be the model distribution, then $$\hat \theta_{\text{MLE}} = \arg \min_\theta \mathrm{KL}\big(p_{\text{data}}(x) \,\|\, p(x\mid \theta)\big)$$
+where the expanded form $$\mathrm KL = \int p_{\text{data}}(x) \log \frac{p_{\text{data}}(x)}{p(x \mid \theta)} dx$$ 
+We already established $$
+\hat \theta_{\text{MLE}} = \arg \min_\theta \mathbb E_{x \sim \hat p(x)} \left [- \log P(x\mid\theta) \right] $$
+By **Law of Large Numbers** , we have as $N \to \infty$ , $\hat p(x) \to p_{\text{data}}(x)$ .
+So asymptotically, $\mathbb E_{x \sim \hat p(x)}[\cdot] \;\approx\; \mathbb E_{x \sim p_{\text{data}}(x)}[\cdot]$ 
+
+Now, $$
+\hat \theta_{\text{MLE}} = \arg \min_\theta \mathbb E_{x \sim p_{\text{data}}(x)} \left [- \log p(x\mid\theta) \right] $$
+which is essentially the **cross-entropy** between $p(x \mid \theta)$ and $p_{\text{data}}(x)$.
+Since the *entropy* of $p_{\text{data}}$ is **constant** w.r.t. $\theta$ , as the expectation only depends on the true distribution, not $\theta$, now, 
+	Recall basic logarithm and linearity of expectation $$\begin{align*} \log (\frac{A}{B}) &= \log(A) - \log (B) \\ \mathbb E[-\log A] & = \mathbb E[\log B - \log A - \log B] \\ &= \mathbb E[\log\frac{B}{A}] - \mathbb E[\log B] \end{align*}$$
+$$\begin{aligned} \mathbb E_{p_{\text{data}}}[-\log p(x\mid\theta)] &= \mathbb E_{p_{\text{data}}} \left[ \log \frac{p_{\text{data}}(x)}{p(x\mid\theta)} \right] - \mathbb E_{p_{\text{data}}}[\log p_{\text{data}}(x)] \\ &= \mathrm{KL}\big(p_{\text{data}}(x) \,\|\, p(x\mid \theta)\big) + H(p_{\text{data}}) \end{aligned}$$
+
+Now, with entropy of the data equals zero, we've established $$\hat \theta_{\text{MLE}} = \arg \min_\theta \mathbb E_{x \sim p_{\text{data}}(x)} \left [- \log p(x\mid\theta) \right] = \arg \min_\theta \mathrm{KL}\big(p_{\text{data}}(x) \,\|\, p(x\mid \theta)\big)$$
+MLE is equivalent to minimizing the KL divergence from the true data distribution to the model distribution.
+	It minimize *forward* KL, not symmetrically, potentially 
+		* Penalized heavily for missing data modes
+		* But not penalized much for placing mass where data doesn't exist 
+	This asymmetry matters a lot later for AE vs VAE vs diffusion vs GANs.
+
+### When MLE reduces to Mean Squared Error (MSE)
+Assume the model: $$P(x \mid \theta) = \mathcal{N}(x \mid \mu_\theta, \sigma^2 I) $$
+The negative log-likelihood for a single sample is, let $c$ be constant, $$- \log P(x\mid \theta) = c \frac{1}{2\sigma^2}\|x-\mu_\theta\|^2$$
+Thus, $$\arg\max_\theta \log P(D \mid \theta) \;\;\Longleftrightarrow\;\; \arg\min_\theta \sum_{k=1}^N \|x_k - \mu_\theta\|^2$$
+Minimizing mean squared error is equivalent to MLE under isotropic Gaussian noise assumption, which is also the reason why MSE appears ubiquitously in regression, autoencoders, and reconstruction losses.
+
+
+### **When data is scarce: Maximum A Posteriori (MAP)**
+When the dataset is small (e.g., flipping a coin only a few times), MLE can overfit.
+In such cases, we introduce **prior knowledge** over parameters.
+
+Using Bayes’ rule:
+
+$$P(\theta \mid D) = \frac{P(D \mid \theta) P(\theta)}{P(D)} \;\;\propto\;\; P(D \mid \theta) P(\theta)$$
+- $P(\theta)$: prior distribution (encodes beliefs or regularization)
+- $P(D \mid \theta)$: likelihood
+- $P(\theta \mid D)$: posterior distribution
+
+MAP chooses the parameter that maximizes the posterior:$$\hat{\theta}_{\text{MAP}} = \arg\max_\theta P(\theta \mid D) = \arg\max_\theta \log P(D \mid \theta) + \log P(\theta)$$
+**Interpretation:**
+- MLE: data-only fitting
+- MAP: data + prior regularization
+
+In practice:
+- Gaussian prior → L2 regularization
+- Laplace prior → L1 regularization
+
+
+
