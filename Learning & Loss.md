@@ -6,14 +6,13 @@ tags:
 ---
 
 
-# Framework
-## Data
+# Data
 
 - The **Real** Distribution: We consider supervised or self-supervised learning settings where we observe samples $x \in \mathcal{X}$ drawn i.i.d. from an **unknown data-generating distribution** $p_{\text{data}}(x)$, where we **never** assume a *paramaetric* form for $p_{\text{data}}$ itself.
 
 - The **Dataset** $(\mathcal{D})$: A finite set of samples $D = \{x_1, x_2, \dots, x_N\} \sim p_{\text{data}}$ observed from the real distribution.
 
-## Model
+# Model
 
 We define a **Model** as a **Parametric Family of Probability Distributions**.
 
@@ -23,8 +22,154 @@ $$
 be a family of probability distributions indexed by parameters $\theta$ in a parameter space $\Theta$.
 
 Our model consists of two coupled components:
-- The Parameter Mapping (**Deterministic**): A function $f_\theta$ that maps input context $x$ to distribution parameters $\phi$.
-- The Sampling Distribution (**Stochastic**): A specific probability density form $p(\cdot \mid \phi)$ that defines how the target $y$ is distributed given those parameters.
+- The Parameter Mapping (**Deterministic**): A function $f_\theta$ that maps input context $x$ to distribution **parameters** $\psi$.
+- The Sampling Distribution (**Stochastic**): A specific probability density form $p(\cdot \mid \psi)$ that defines how the target $y$ is distributed given those parameters ($f_\theta$).
+
+## Mapping Function
+> Mapping *'What we know'* to *The Parameters of the Distribution*.
+
+### Input and Output
+
+**Input:** The "Conditioning Information."
+**Output:** The "Distribution Parameters"
+
+| Task | Input | Output |
+| --- | --- | --- |
+| **Supervised (Regression)** | **Features** (e.g., House Size) | **Predicted Mean Target** (e.g., Price ) |
+| **Supervised (Classification)** | **Image** (e.g., Pixels) | **Logits / Probabilities** (Vector) |
+| **Autoencoder** | **Image** () | **Reconstructed Image** () |
+| **VAE (Decoder)** | **Latent Code** () | **Reconstructed Mean** () |
+
+### 1. Large Language Models (LLM)
+
+*Task: Text Generation (e.g., GPT-4, Llama)*
+
+* **Input:** A sequence of tokens (Context).
+* `"The capital of France is"`
+
+
+* **The Model ():** A Transformer Decoder.
+* **Output ():** **Logits**.
+* A vector of size 50k (vocabulary size). Each number represents the "unnormalized score" for a word.
+* 
+
+
+* **Likelihood Assumption (Noise):** **Categorical Distribution**.
+* We assume the next word is chosen probabilistically (rolling a 50,000-sided die).
+* To get probabilities, we apply Softmax to .
+
+
+* **Loss:** Cross-Entropy (Negative Log-Likelihood).
+* We want the probability of the *actual* next word ("Paris") to be 1.0.
+
+
+
+> **Key Insight:** The "Noise" here is the ambiguity of language. The model outputs a distribution because there is rarely only *one* valid next word.
+
+---
+
+### 2. Vision-Language Models (Image Understanding)
+
+*Task: Visual Question Answering (VQA) or Captioning (e.g., Llava, GPT-4V)*
+
+* **Input:** An Image + A Text Prompt.
+* `
+
+
+
+* "What is the animal doing?"`
+
+* **The Model ():** A Visual Encoder (ViT) connected to an LLM.
+* **Output ():** **Logits** (Same as LLM!).
+* Even though the input is multi-modal, the *output* is usually just text tokens.
+*  predicts the token "sleeping".
+
+
+* **Likelihood Assumption:** **Categorical Distribution**.
+* **Loss:** Cross-Entropy.
+
+> **Key Insight:** To the model, an image is just "translated" into vectors that look like text embeddings. The objective remains "predict the next word," but conditioned on visual features.
+
+---
+
+### 3. Text-to-Image Generation (Diffusion Models)
+
+*Task: Generating images from prompts (e.g., Stable Diffusion, Midjourney)*
+
+This is the most complex one because the "Signal" and "Noise" are flipped.
+
+* **Input:** A **Noisy Image** () + A **Text Prompt** + Time step ().
+* We take a clean image and add 50% static to it. We give this static-filled image to the model.
+
+
+* **The Model ():** A U-Net or Transformer.
+* **Output ():** **The Noise ()**.
+* Strangely, the model is trained to predict *what the static looks like*, so we can subtract it.
+
+
+* **Likelihood Assumption:** **Gaussian**.
+* We assume the pixel values of the clean image were corrupted by Adding Gaussian Noise.
+* Therefore, the probability of the previous clean state depends on a Gaussian distribution.
+
+
+* **Loss:** **Mean Squared Error (MSE)**.
+* 
+* We measure the Euclidean distance between the *actual* static we added and the *static* the model guessed.
+
+
+
+> **Key Insight:** In Diffusion,  acts as a "Denoising Engine." By predicting the noise (assumed Gaussian), it allows us to reverse the process and uncover the image.
+
+---
+
+### 4. Image-Text Matching (Contrastive Learning)
+
+*Task: Connecting Images to Concepts (e.g., CLIP)*
+
+This is not "generating" data, but "aligning" distributions.
+
+* **Input:** A batch of Images  and a batch of Text Captions .
+* **The Model ():** Two Encoders (Image Encoder & Text Encoder).
+* **Output ():** **Embedding Vectors**.
+*  (Vector summary of the image)
+*  (Vector summary of the text)
+
+
+* **Likelihood Assumption:** **InfoNCE (Categorical over the batch)**.
+* We assume that for a specific image , the "correct" caption  is the one that aligns best, and all other captions in the batch are "noise/distractors."
+* It treats the batch like a multiple-choice test.
+
+
+* **Loss:** Contrastive Loss.
+* Maximize the dot product (similarity) of correct pairs .
+* Minimize the dot product of incorrect pairs.
+
+
+
+---
+
+### Summary Table
+
+| Domain | Input to  | Output  (Parameters) | Assumed Distribution (Noise) | Loss Function |
+| --- | --- | --- | --- | --- |
+| **LLM** | Text Context | Logits (Next Token Scores) | **Categorical** (Multinomial) | Cross-Entropy |
+| **Image Understanding** | Image + Text Query | Logits (Next Token Scores) | **Categorical** (Multinomial) | Cross-Entropy |
+| **Diffusion (Generation)** | Noisy Image + Prompt | Predicted Noise () | **Gaussian** (Normal) | MSE () |
+| **CLIP (Matching)** | Image + Text | Embedding Vectors | **Categorical** (over batch) | Contrastive Loss |
+
+
+
+- Output: always a paramaeters instead of a datapoint.
+- 
+
+### Sampling Distribution
+
+
+### Why We Need Stochastic
+
+
+
+
 
 
 ### Noise and Likelihood
@@ -734,134 +879,6 @@ This is the difference between an **Artist** and a **Critic**.
 This wraps up the theory of VAEs, Likelihood, and Generative vs. Discriminative models. Would you like to switch gears to the **implementation side**? We can look at a simple **PyTorch implementation of a VAE** to see how the Encoder, Decoder, and Reparameterization Trick () are actually written in code.
 
 
-Here is a breakdown of how the framework  applies to modern Multi-modal and Generative AI.
-
-In all these cases, remember:
-
-1. : The Deep Neural Network (Transformer/UNet).
-2. **Input:** What the model sees.
-3. **Output ():** The parameters (logits, means) of the distribution.
-4. **Likelihood/Loss:** The assumption about how the data varies (Noise).
-
----
-
-### 1. Large Language Models (LLM)
-
-*Task: Text Generation (e.g., GPT-4, Llama)*
-
-* **Input:** A sequence of tokens (Context).
-* `"The capital of France is"`
-
-
-* **The Model ():** A Transformer Decoder.
-* **Output ():** **Logits**.
-* A vector of size 50k (vocabulary size). Each number represents the "unnormalized score" for a word.
-* 
-
-
-* **Likelihood Assumption (Noise):** **Categorical Distribution**.
-* We assume the next word is chosen probabilistically (rolling a 50,000-sided die).
-* To get probabilities, we apply Softmax to .
-
-
-* **Loss:** Cross-Entropy (Negative Log-Likelihood).
-* We want the probability of the *actual* next word ("Paris") to be 1.0.
-
-
-
-> **Key Insight:** The "Noise" here is the ambiguity of language. The model outputs a distribution because there is rarely only *one* valid next word.
-
----
-
-### 2. Vision-Language Models (Image Understanding)
-
-*Task: Visual Question Answering (VQA) or Captioning (e.g., Llava, GPT-4V)*
-
-* **Input:** An Image + A Text Prompt.
-* `
-
-
-
-* "What is the animal doing?"`
-
-* **The Model ():** A Visual Encoder (ViT) connected to an LLM.
-* **Output ():** **Logits** (Same as LLM!).
-* Even though the input is multi-modal, the *output* is usually just text tokens.
-*  predicts the token "sleeping".
-
-
-* **Likelihood Assumption:** **Categorical Distribution**.
-* **Loss:** Cross-Entropy.
-
-> **Key Insight:** To the model, an image is just "translated" into vectors that look like text embeddings. The objective remains "predict the next word," but conditioned on visual features.
-
----
-
-### 3. Text-to-Image Generation (Diffusion Models)
-
-*Task: Generating images from prompts (e.g., Stable Diffusion, Midjourney)*
-
-This is the most complex one because the "Signal" and "Noise" are flipped.
-
-* **Input:** A **Noisy Image** () + A **Text Prompt** + Time step ().
-* We take a clean image and add 50% static to it. We give this static-filled image to the model.
-
-
-* **The Model ():** A U-Net or Transformer.
-* **Output ():** **The Noise ()**.
-* Strangely, the model is trained to predict *what the static looks like*, so we can subtract it.
-
-
-* **Likelihood Assumption:** **Gaussian**.
-* We assume the pixel values of the clean image were corrupted by Adding Gaussian Noise.
-* Therefore, the probability of the previous clean state depends on a Gaussian distribution.
-
-
-* **Loss:** **Mean Squared Error (MSE)**.
-* 
-* We measure the Euclidean distance between the *actual* static we added and the *static* the model guessed.
-
-
-
-> **Key Insight:** In Diffusion,  acts as a "Denoising Engine." By predicting the noise (assumed Gaussian), it allows us to reverse the process and uncover the image.
-
----
-
-### 4. Image-Text Matching (Contrastive Learning)
-
-*Task: Connecting Images to Concepts (e.g., CLIP)*
-
-This is not "generating" data, but "aligning" distributions.
-
-* **Input:** A batch of Images  and a batch of Text Captions .
-* **The Model ():** Two Encoders (Image Encoder & Text Encoder).
-* **Output ():** **Embedding Vectors**.
-*  (Vector summary of the image)
-*  (Vector summary of the text)
-
-
-* **Likelihood Assumption:** **InfoNCE (Categorical over the batch)**.
-* We assume that for a specific image , the "correct" caption  is the one that aligns best, and all other captions in the batch are "noise/distractors."
-* It treats the batch like a multiple-choice test.
-
-
-* **Loss:** Contrastive Loss.
-* Maximize the dot product (similarity) of correct pairs .
-* Minimize the dot product of incorrect pairs.
-
-
-
----
-
-### Summary Table
-
-| Domain | Input to  | Output  (Parameters) | Assumed Distribution (Noise) | Loss Function |
-| --- | --- | --- | --- | --- |
-| **LLM** | Text Context | Logits (Next Token Scores) | **Categorical** (Multinomial) | Cross-Entropy |
-| **Image Understanding** | Image + Text Query | Logits (Next Token Scores) | **Categorical** (Multinomial) | Cross-Entropy |
-| **Diffusion (Generation)** | Noisy Image + Prompt | Predicted Noise () | **Gaussian** (Normal) | MSE () |
-| **CLIP (Matching)** | Image + Text | Embedding Vectors | **Categorical** (over batch) | Contrastive Loss |
-
 ### Final Note on "Approximation"
 
 * In **LLMs**, we approximate the conditional distribution of **Language**: .
@@ -871,22 +888,6 @@ Both rely on  to output the parameters of a distribution that makes the training
 
 
 Here is the breakdown of the notation to make it concrete.
-
-### 1. What are the Input and Output of ?
-
-The function  is the **deterministic core** of your neural network. Its job is to map "What we know" to "The parameters of the distribution."
-
-**The Input:** The "Conditioning Information."
-**The Output ():** The "Distribution Parameters" (usually the Mean).
-
-Here is how it changes depending on the task:
-
-| Task | Input to  | Output of  () |
-| --- | --- | --- |
-| **Supervised (Regression)** | **Features** (e.g., House Size) | **Predicted Mean Target** (e.g., Price ) |
-| **Supervised (Classification)** | **Image** (e.g., Pixels) | **Logits / Probabilities** (Vector) |
-| **Autoencoder** | **Image** () | **Reconstructed Image** () |
-| **VAE (Decoder)** | **Latent Code** () | **Reconstructed Mean** () |
 
 ### 2. Definition of 
 
