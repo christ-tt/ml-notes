@@ -14,8 +14,12 @@ tags:
 # Model
 
 We define a **Model** as a **Parametric Family of Probability Distributions**.
-Let $$
-\mathcal{P} = \{p_\theta: \theta \in \Theta\}$$
+Let 
+
+$$
+\mathcal{P} = \{p_\theta: \theta \in \Theta\}
+$$
+
 be a family of probability distributions indexed by parameters $\theta$ in a parameter space $\Theta$.
 
 Our model consists of two coupled components:
@@ -90,9 +94,23 @@ However, by sampling different random noise, we can produce infinite variations 
 
 #### Conditional Independence Theorem
 The global model parameters $\theta$ do not influence the data $y$ directly. They only influence the data through the local distribution parameters $\psi$.We postulate the following causal chain:
-$$\theta \xrightarrow{\text{Deterministic}} \psi \xrightarrow{\text{Stochastic}} y$$
-Once the sufficient statistics $\psi$ are known, the global weights $\theta$ provide no additional information about the target $y$:$$y \perp \!\!\! \perp \theta \mid \psi$$Mathematically, this simplifies the conditional probability:
-$$p(y \mid x, \theta) \equiv p(y \mid \psi) \equiv p_\theta(y)$$
+
+$$
+\theta \xrightarrow{\text{Deterministic}} \psi \xrightarrow{\text{Stochastic}} y
+$$
+
+Once the sufficient statistics $\psi$ are known, the global weights $\theta$ provide no additional information about the target $y$:
+
+$$
+y \perp \!\!\! \perp \theta \mid \psi
+$$
+
+Mathematically, this simplifies the conditional probability:
+
+$$
+p(y \mid x, \theta) \equiv p(y \mid \psi) \equiv p_\theta(y)
+$$
+
 
 |                   | Viewpoint   | Name                                 | Meaning                                                                                               | Emphasize                                                                                                                         | Context                                                                                                                                                                 |
 | ----------------- | ----------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -111,24 +129,42 @@ From the **frequentist** perspective, probability is defined via frequencies:
 
 From our observed dataset $\mathcal{D} = \{x_1, x_2, \dots, x_N\}$, where data are i.i.d. from the true distribution. 
 The **Likelihood** of the dataset under our model is the joint probability:
-$$P(D \mid \theta) = \prod_{k=1}^{N} P(x_k \mid \theta)$$
+
+$$
+P(D \mid \theta) = \prod_{k=1}^{N} P(x_k \mid \theta)
+$$
+
 Directly optimization of this product is numerically unstable (values approache zero). Given logarithm is monotonic, we maximize the **log-likelihood** :
-$$\log P(D \mid \theta) = \sum_{k=1}^{N} \log P(x_k \mid \theta)$$
+
+$$
+\log P(D \mid \theta) = \sum_{k=1}^{N} \log P(x_k \mid \theta)
+$$
 
 ## Maximum Likelihood Estimation (MLE)
 
 Given the *family of distribution* parameterized by $\theta$ 
-$$\mathcal P = \{p_\theta: \theta \in \Theta\},$$
-the MLE objective seeks the parameter $\hat{\theta}_{\text{MLE}}$ that maximizes the fit to the observed data. $$
+
+$$
+\mathcal P = \{p_\theta: \theta \in \Theta\},
+$$
+
+the MLE objective seeks the parameter $\hat{\theta}_{\text{MLE}}$ that maximizes the fit to the observed data. 
+
+$$
 \begin{align} 
 \hat \theta_{\text{MLE}} &= \arg \max_\theta \log P(D\mid\theta) \\
 &= \arg \max_\theta \sum_{k=1}^N \log P(x_i\mid\theta) \\
 &= \arg \min_\theta \frac{1}{N}\sum_{k=1}^N -\log P(x_i\mid\theta) \\
 &= \arg \min_\theta \mathbb E_{x \sim \hat p(x)} \left [- \log P(x\mid\theta) \right]
 \end{align}
-$$where $\hat p(x)$ is the **Empirical Data Distribution**. Sampling from $\hat p(x)$ is equivalent to picking a data point uniformally at random from data set $D$.
+$$
+
+where $\hat p(x)$ is the **Empirical Data Distribution**. Sampling from $\hat p(x)$ is equivalent to picking a data point uniformally at random from data set $D$.
 Formally, using the **Dirac** delta $\delta(\cdot)$:
-$$\hat p(x) = \frac{1}{N} \sum_{k=1}^N \delta (x - x_k)$$ 
+
+$$
+\hat p(x) = \frac{1}{N} \sum_{k=1}^N \delta (x - x_k)
+$$ 
 
 MLE minimizes the expected negative log-likelihood (NLL) over the observed empirical distribution.
 
@@ -136,61 +172,79 @@ MLE minimizes the expected negative log-likelihood (NLL) over the observed empir
 
 Minimizing Negative Log-Likelihood (NLL) is mathematically equivalent to minimizing the "distance" between the True Data Distribution (though we never assume a parametric form) and our Model.
 
-Let $p_{\text{data}}(x)$ be the true, unknown data distribution, and $p(x \mid \theta)$ be the model distribution, then $$\hat \theta_{\text{MLE}} = \arg \min_\theta \mathrm{KL}\big(p_{\text{data}}(x) \,\|\, p(x\mid \theta)\big)$$
-where the expanded form $$\mathrm KL = \int p_{\text{data}}(x) \log \frac{p_{\text{data}}(x)}{p(x \mid \theta)} dx$$ 
-We already established $$
-\hat \theta_{\text{MLE}} = \arg \min_\theta \mathbb E_{x \sim \hat p(x)} \left [- \log P(x\mid\theta) \right] $$
-By **Law of Large Numbers** , we have as $N \to \infty$ , $\hat p(x) \to p_{\text{data}}(x)$ .
-So asymptotically, $\mathbb E_{x \sim \hat p(x)}[\cdot] \;\approx\; \mathbb E_{x \sim p_{\text{data}}(x)}[\cdot]$ 
+Let $p_{\text{data}}(x)$ be the true, unknown data distribution.
+By **Law of Large Numbers**, as $N \to \infty$ , $\hat p(x) \to p_{\text{data}}(x)$. The empirical expectation converges to the true expectation: 
 
-Now, $$
-\hat \theta_{\text{MLE}} = \arg \min_\theta \mathbb E_{x \sim p_{\text{data}}(x)} \left [- \log p(x\mid\theta) \right] $$
-which is essentially the **cross-entropy** between $p(x \mid \theta)$ and $p_{\text{data}}(x)$.
-Since the *entropy* of $p_{\text{data}}$ is **constant** w.r.t. $\theta$ , as the expectation only depends on the true distribution, not $\theta$, now, 
-	Recall basic logarithm and linearity of expectation $$\begin{align*} \log (\frac{A}{B}) &= \log(A) - \log (B) \\ \mathbb E[-\log A] & = \mathbb E[\log B - \log A - \log B] \\ &= \mathbb E[\log\frac{B}{A}] - \mathbb E[\log B] \end{align*}$$
-$$\begin{aligned} \mathbb E_{p_{\text{data}}}[-\log p(x\mid\theta)] &= \mathbb E_{p_{\text{data}}} \left[ \log \frac{p_{\text{data}}(x)}{p(x\mid\theta)} \right] - \mathbb E_{p_{\text{data}}}[\log p_{\text{data}}(x)] \\ &= \mathrm{KL}\big(p_{\text{data}}(x) \,\|\, p(x\mid \theta)\big) + H(p_{\text{data}}) \end{aligned}$$
+$$
+\mathbb E_{x \sim \hat p(x)}[\cdot] \;\xrightarrow{N \to \infty}\; \mathbb E_{x \sim p_{\text{data}}(x)}[\cdot]
+$$
 
-Now, with entropy of the data equals zero, we've established $$\hat \theta_{\text{MLE}} = \arg \min_\theta \mathbb E_{x \sim p_{\text{data}}(x)} \left [- \log p(x\mid\theta) \right] = \arg \min_\theta \mathrm{KL}\big(p_{\text{data}}(x) \,\|\, p(x\mid \theta)\big)$$
-MLE is equivalent to minimizing the KL divergence from the true data distribution to the model distribution.
-	It minimize *forward* KL, not symmetrically, potentially 
-		* Penalized heavily for missing data modes
-		* But not penalized much for placing mass where data doesn't exist 
-	This asymmetry matters a lot later for AE vs VAE vs diffusion vs GANs.
+The optimization problem becomes minimizing the **Cross-Entropy** between *Truth* and *Model*: 
+
+$$
+\hat \theta_{\text{MLE}} = \arg \min_\theta \mathbb E_{x \sim p_{\text{data}}(x)} \left [- \log p(x\mid\theta) \right] 
+$$
+
+We can expand the KL Divergence term:
+
+$$
+\begin{align}
+\mathrm{KL}\big(p_{\text{data}} \,\|\, p_\theta\big) &= \int p_{\text{data}}(x) \log \frac{p_{\text{data}}(x)}{p(x \mid \theta)} dx\\ &= \mathbb E_{p_{\text{data}}} \left[ \log \frac{p_{\text{data}}(x)}{p(x\mid\theta)} \right] \\
+&= \underbrace{\mathbb E_{p_{\text{data}}}[\log p_{\text{data}}(x)]}_{\text{Entropy } H(p_{\text{data}})} - \underbrace{\mathbb E_{p_{\text{data}}}[\log p(x\mid\theta)]}_{\text{Likelihood}}
+\end{align}
+$$
+
+Since the Entropy of the true data $H(p_\text{data})$ is a constant with respect to our model parameters $\theta$, minimizing KL Divergence is identical to maximizing Likelihood.
+
+$$
+\hat \theta_{\text{MLE}} = \arg \min_\theta \mathrm{KL}\big(p_{\text{data}}(x) \,\|\, p(x\mid \theta)\big)
+$$
+
+We can also establish this using basic logarithm and linearity of expectation 
+
+$$
+\begin{align*} \log (\frac{A}{B}) &= \log(A) - \log (B) \\ \mathbb E[-\log A] & = \mathbb E[\log B - \log A - \log B] \\ &= \mathbb E[\log\frac{B}{A}] - \mathbb E[\log B] \\ \mathbb E_{p_{\text{data}}}[-\log p(x\mid\theta)] &= \mathbb E_{p_{\text{data}}} \left[ \log \frac{p_{\text{data}}(x)}{p(x\mid\theta)} \right] - \mathbb E_{p_{\text{data}}}[\log p_{\text{data}}(x)] \\ &= \mathrm{KL}\big(p_{\text{data}}(x) \,\|\, p(x\mid \theta)\big) + H(p_{\text{data}})\end{align*}
+$$
+
+MLE minimizes the **Forward KL Divergence** from the true data distribution to the model distribution.
+- This effectively forces the model to *cover* the data.
+- Heavily penalizes the model for assigning low probability to real data points (missing modes).
+- Does not heavily penalize assigning probability to regions where data doesn't exist (potential for hallucinations).
+
+
+### **When Data is Scarce: Maximum A Posteriori (MAP)**
+
+When the dataset is small, MLE can overfit, memorizing noise in $\hat p(x)$ rather than learning $p_\text{data}$.
+In these cases, we adopt a **Bayesian** perspective by introducing a **Prior** distribution $P(\theta)$ over the parameters themselves.
+
+Using Bayes’ rule:
+
+$$
+P(\theta \mid D) = \frac{P(D \mid \theta) P(\theta)}{P(D)} \;\;\propto\;\; P(D \mid \theta) P(\theta)
+$$
+
+The MAP objective maximizes the **Posterior** probability of the parameters:
+
+$$
+\hat{\theta}_{\text{MAP}} = \arg\max_\theta P(\theta \mid D) = \arg\max_\theta \log P(D \mid \theta) + \log P(\theta)
+$$
+
+In practice, the choice of the prior (e.g. Gaussian, Laplace) leads directly to *regularization* terms (like Weight Decay), which we will discuss in later sections.
+
+
+
+
+
+
+
+
+# LATER
 
 ### When MLE reduces to Mean Squared Error (MSE)
 Assume the model: $$P(x \mid \theta) = \mathcal{N}(x \mid \mu_\theta, \sigma^2 I) $$
 The negative log-likelihood for a single sample is, let $c$ be constant, $$- \log P(x\mid \theta) = c \frac{1}{2\sigma^2}\|x-\mu_\theta\|^2$$
 Thus, $$\arg\max_\theta \log P(D \mid \theta) \;\;\Longleftrightarrow\;\; \arg\min_\theta \sum_{k=1}^N \|x_k - \mu_\theta\|^2$$
 Minimizing mean squared error is equivalent to MLE under isotropic Gaussian noise assumption, which is also the reason why MSE appears ubiquitously in regression, autoencoders, and reconstruction losses.
-
-
-### **When data is scarce: Maximum A Posteriori (MAP)**
-When the dataset is small (e.g., flipping a coin only a few times), MLE can overfit.
-In such cases, we introduce **prior knowledge** over parameters.
-
-Using Bayes’ rule:
-
-$$P(\theta \mid D) = \frac{P(D \mid \theta) P(\theta)}{P(D)} \;\;\propto\;\; P(D \mid \theta) P(\theta)$$
-- $P(\theta)$: prior distribution (encodes beliefs or regularization)
-- $P(D \mid \theta)$: likelihood
-- $P(\theta \mid D)$: posterior distribution
-
-MAP chooses the parameter that maximizes the posterior:$$\hat{\theta}_{\text{MAP}} = \arg\max_\theta P(\theta \mid D) = \arg\max_\theta \log P(D \mid \theta) + \log P(\theta)$$
-**Interpretation:**
-- MLE: data-only fitting
-- MAP: data + prior regularization
-
-In practice:
-- Gaussian prior → L2 regularization
-- Laplace prior → L1 regularization
-
-
-
-
-
-
-
-
 
 
 
