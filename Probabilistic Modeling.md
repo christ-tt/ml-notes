@@ -82,62 +82,25 @@ Now, by sampling different random noise, we can produce infinite variations of d
 
 
 ### Likelihood, Sampling, and Noise: The Rosetta Stone
-| Term | Context | Math Form | Definition & Intuition |
-| --- | --- | --- | --- |
-| **Observation Model** | Architecture | $y \sim D(\psi)$ | "The Blueprint. The design choice defining the family of distribution (e.g. *"We assume the head outputs Gaussian paramaeters"*). |
-| **Likelihood** | Training |  |  |
-|  |  |  |  |
-|  |  |  |  |
+#### Equivalence of Terms
+| Term                      | Context      | Math Form                                            | Definition & Intuition                                                                                                                    |
+| ------------------------- | ------------ | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Observation Model**     | Architecture | $y \sim \mathcal{P}(\psi)$                           | The *Blueprint*. The design choice defining the family of distribution (e.g. *"We assume the head outputs Gaussian paramaeters"*).        |
+| **Likelihood**            | Training     | $\mathcal{L}(\theta) = p(y_{\text{real}} \mid \psi)$ | The *Scoreboard*. The probability density assigned to observed real data given the model's current parameters; used to compute gradients. |
+| **Sampling Distribution** | Inference    | $y_\text{next} \sim p(\cdot \mid \psi)$              | The *Generator*. The probability cloud from which we draw samples to generate new data (hallucinating plausible outputs).                 |
+| **Noise Model**           | Physics      | $\sigma \sim p_\sigma(\cdot)$                        | The *Fuzz*. The source of stochasticity, explaining why $y \neq f_\theta(x)$, defining how deviations are penalized.                      |
 
+#### Conditional Independence Theorem
+The global model parameters $\theta$ do not influence the data $y$ directly. They only influence the data through the local distribution parameters $\psi$.We postulate the following causal chain:
+$$\theta \xrightarrow{\text{Deterministic}} \psi \xrightarrow{\text{Stochastic}} y$$
+Once the sufficient statistics $\psi$ are known, the global weights $\theta$ provide no additional information about the target $y$:$$y \perp \!\!\! \perp \theta \mid \psi$$Mathematically, this simplifies the conditional probability:
+$$p(y \mid x, \theta) \equiv p(y \mid \psi) \equiv p_\theta(y)$$
 
-Likelihood,Training,L(θ)=p(yreal​∣ψ),The Scoreboard. The probability density assigned to observed real data given the model's current parameters. Used to compute gradients.
-Sampling Distribution,Inference,ynew​∼p(⋅∣ψ),The Generator. The probability cloud from which we draw samples to generate new data (hallucinating plausible outputs).
-Noise Model,Physics,ε∼pε​(⋅),The Fuzz. The source of stochasticity explaining why y=fθ​(x). It defines how deviations are penalized.
-All referring to the same thing.
-
-#### Sampling Distribution
-* Context: Inference
-* Definition: The probability distribution we draw from to generate new data.
-* Inution: *Generator*
-
-#### Likelihood:
-* Context: Training
-* Definition: The probability *score* we assign to real data given our parameters.
-* Inituition: *Scoreboard*
-
-#### Observation Model
-* Context: Architecutre
-* Definition: The design choice we make. (e.g. using Gaussian head)
-* Intuition: *Blueprint* 
-
-#### Noise Model
-* Context: Physics
-* Definition: The source of randomness that explains why $y$ isn't exactly $f_\theta(x)$.
-* Intuition: *Fuzz*
-
-conditional distribution $$
-p(x \mid \hat x_\theta)
-$$
-It specifies how **deviations** between reality and the model prediction are treated.
-
-  
-Equivalently, we assume:
-$$x = \hat x_\theta + \varepsilon, \quad \varepsilon \sim p_\varepsilon(\cdot)$$,
-
-where:
-- $\varepsilon$ is an abstract noise variable,
-- $p_\varepsilon$ is chosen by the modeler.
-
-Noise means how we choose to interpret discrepancies between model prediction and data; different assumptions of the distribution of the noise are how we *think* we should interpret the errors. 
-* For example, normal means small errors are common, large errors are increasingly unlikely; errors are symmetric, and errors should be penalized quadratically, *L2*
-* Laplace noise assume mostly clean data, but occasionally huge outliers *L1* 
-
-By assuming the conditional distribution, we are imposing our belief about the nature of the error.
-
-If we assume Gaussian: We are saying "The model's prediction is the average, and errors are symmetric noise."
-
-If we assume Categorical: We are saying "The world is a set of discrete choices, and the model predicts preference scores."
-
+|                   | Viewpoint   | Name                                 | Meaning                                                                                               | Emphasize                                                                                                                         | Context                                                                                                                                                                 |
+| ----------------- | ----------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| $p(y\mid \theta)$ | Statistical | Likeihood / Statistical Conditioning | The probability of observing $y$, **given** model parameters $\theta$                                 | The *Data-Generation* Story. It highlights the causal dependency of the data on the model configuration.                          | - Likelihood Derivations $\mathcal{L}(\theta)$.<br>- Classical Parameter Estimation.<br>- Bayesian Inference (where $\theta$ is conditioned upon).                   |
+| $p_\theta(y)$     | Geometric   | Parameteric Family                   | The specific distribution from the family $\mathcal{P}$ indexed by $\theta$, evaluated at point $y$   | The Model as a Function. It treats the model as a manifold in the space of all possible distributions.                            | - Information Geometry.<br>- Optimization (Gradient Descent).<br>- Divergence measures (e.g., $\mathrm{KL}(p_{\text{data}} \,\|\, p_\theta)$).                       |
+| $p(y\mid \psi)$   | Mechanistic | Observation / Noise Model            | The probability of the target $y$ given the predicted parameters $\psi$ (where $\psi = f_\theta(x)$). | The **Prediction + Noise** mechanism. It specifies exactly how deviations between the model's prediction and reality are treated. | - Defining the Loss Function (e.g., Gaussian $\to$ MSE).<br>- Sampling / Generation (Drawing $\varepsilon$).<br>- Architecture Design (Choosing the output head). |
 
 
 ## Mapping Function
@@ -349,72 +312,10 @@ By maximizing likelihood, we are essentially finding the parameters that make th
 
 
 
-## Reparametrization
-$$p(x \mid \theta) \;\equiv\; p(x \mid \hat x_\theta)$$
-where
-* $\hat x_\theta$ is the man / location parameter
-* randomness comes from $\epsilon$, not from $\theta$, as $\theta$ determines a deterministic prediction $\hat x_\theta$,
-- all randomness in x is modeled **conditionally on** $\hat x_\theta$.
-
-This factorization is valid because, once we know the model's prediction $\hat x_\theta$, the parameters $\theta$ no longer matter for generating $x$:
-$$x \;\perp\!\!\!\perp\; \theta \;\mid\; \hat x_\theta.$$
-
-
-Our model, $f_\theta$ , is not trying to approximate $p_\text{data}$ directly. Instead, it approximates a **decision function** derived from the loss.
-Given our learning objective $$\theta^* = \arg \min_\theta \mathbb E_{x \sim p_{\text{data}}} \big [\mathcal L(x;\theta)\big]$$ our optimal predictor $$f^* = \arg \min_f \mathbb E_{x \sim p_{\text{data}}} \big [\mathcal L(x, f(x))\big]$$
-
-
-where the specific form of the loss $\mathcal L$ depends on how the data sample $x$ is structured and how the model is tasked to use it.
-* **Supervised Learning**: 
-	* $x = (\mu, y)$ where $\mu$ is the input and $y$ is the target; 
-	* the loss measured predictive error $\mathcal L(y, f_\theta(\mu))$
-* **Self-supervised Learning / Autoencoders**: 
-	* $x$ is both input and target; 
-	* the loss measures reconstruction fidelity $\mathcal L(x, \hat x_\theta)$. 
-
-
----
-
 
 
 
   
-### Notations on $p_\theta(x)$ and $p(x\mid \theta)$
-Throughout the report, the following equivalence is used:
-
-$$p(x \mid \theta) \;\equiv\; p_\theta(x) \;\equiv\; p(x \mid \hat x_\theta)$$
-
-  
-
-These notations emphasize different viewpoints:
-
-- $p(x \mid \theta)$: likelihood / statistical conditioning:
-	- The probability (density) of observing $x$, **given** model parameters $\theta$.
-	- This notation emphasizes:
-		- The **data-generation story**
-		- Classical statistics / MLE / MAP derivations
-	- Typical context:
-		- Likelihood functions
-		- Bayesian inference
-		- Parameter estimation
-- $p_\theta(x)$: family of distributions indexed by $\theta$
-	- A **family of distributions indexed by** $\theta$, evaluated at $x$
-	- This notation emphasizes
-		- The **model as a function**
-		- The **space of distributions**
-		- Optimization and geometry
-	- Context
-		- Information geometry
-		- KL divergence: $\mathrm{KL}(p_{\text{data}} \,\|\, p_\theta)$
-		- Generative modeling
-- $p(x \mid \hat x_\theta)$: deterministic prediction + noise
-
-    
-When we are in an MLE (frequentist) setting and $\theta$ is not treated as a random variable, $p(x\mid \theta), p_\theta(x)$ are mathematically equivalent.
-
-In **Bayesian settings**, $\theta$ is now a random variable with a prior $p(\theta)$, then we mostly use $p(x\mid\theta)$ as the likelihood, avoiding possibly ambiguous $p_\theta(x)$.
-
-
 
 
 
@@ -628,3 +529,54 @@ MAP chooses the parameter that maximizes the posterior:$$\hat{\theta}_{\text{MAP
 In practice:
 - Gaussian prior → L2 regularization
 - Laplace prior → L1 regularization
+
+
+
+
+
+# No Use
+Equivalently, we assume:
+$$x = \hat x_\theta + \varepsilon, \quad \varepsilon \sim p_\varepsilon(\cdot)$$,
+
+where:
+- $\varepsilon$ is an abstract noise variable,
+- $p_\varepsilon$ is chosen by the modeler.
+
+Noise means how we choose to interpret discrepancies between model prediction and data; different assumptions of the distribution of the noise are how we *think* we should interpret the errors. 
+* For example, normal means small errors are common, large errors are increasingly unlikely; errors are symmetric, and errors should be penalized quadratically, *L2*
+* Laplace noise assume mostly clean data, but occasionally huge outliers *L1* 
+
+By assuming the conditional distribution, we are imposing our belief about the nature of the error.
+
+If we assume Gaussian: We are saying "The model's prediction is the average, and errors are symmetric noise."
+
+If we assume Categorical: We are saying "The world is a set of discrete choices, and the model predicts preference scores."
+
+
+## Reparametrization
+$$p(x \mid \theta) \;\equiv\; p(x \mid \hat x_\theta)$$
+where
+* $\hat x_\theta$ is the man / location parameter
+* randomness comes from $\epsilon$, not from $\theta$, as $\theta$ determines a deterministic prediction $\hat x_\theta$,
+- all randomness in x is modeled **conditionally on** $\hat x_\theta$.
+
+This factorization is valid because, once we know the model's prediction $\hat x_\theta$, the parameters $\theta$ no longer matter for generating $x$:
+$$x \;\perp\!\!\!\perp\; \theta \;\mid\; \hat x_\theta.$$
+
+
+Our model, $f_\theta$ , is not trying to approximate $p_\text{data}$ directly. Instead, it approximates a **decision function** derived from the loss.
+Given our learning objective $$\theta^* = \arg \min_\theta \mathbb E_{x \sim p_{\text{data}}} \big [\mathcal L(x;\theta)\big]$$ our optimal predictor $$f^* = \arg \min_f \mathbb E_{x \sim p_{\text{data}}} \big [\mathcal L(x, f(x))\big]$$
+
+
+where the specific form of the loss $\mathcal L$ depends on how the data sample $x$ is structured and how the model is tasked to use it.
+* **Supervised Learning**: 
+	* $x = (\mu, y)$ where $\mu$ is the input and $y$ is the target; 
+	* the loss measured predictive error $\mathcal L(y, f_\theta(\mu))$
+* **Self-supervised Learning / Autoencoders**: 
+	* $x$ is both input and target; 
+	* the loss measures reconstruction fidelity $\mathcal L(x, \hat x_\theta)$. 
+
+
+---
+
+
