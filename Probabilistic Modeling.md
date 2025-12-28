@@ -9,16 +9,13 @@ tags:
 # Data
 
 - The **Real** Distribution: We consider supervised or self-supervised learning settings where we observe samples $x \in \mathcal{X}$ drawn i.i.d. from an **unknown data-generating distribution** $p_{\text{data}}(x)$, where we **never** assume a *paramaetric* form for $p_{\text{data}}$ itself.
-
 - The **Dataset** $(\mathcal{D})$: A finite set of samples $D = \{x_1, x_2, \dots, x_N\} \sim p_{\text{data}}$ observed from the real distribution.
 
 # Model
 
 We define a **Model** as a **Parametric Family of Probability Distributions**.
-
 Let $$
-\mathcal{P} = \{p_\theta: \theta \in \Theta\}
-$$
+\mathcal{P} = \{p_\theta: \theta \in \Theta\}$$
 be a family of probability distributions indexed by parameters $\theta$ in a parameter space $\Theta$.
 
 Our model consists of two coupled components:
@@ -41,6 +38,13 @@ This is equivalent to drawing from the distribution that we (as the modeler) ass
 5. **Sampling**: the stochastic step; drawing from that distribution.
 6. **Output**($y$): the *realization*.
     e.g. Result: next token *'mat'*, class *'dog'*...
+
+Note that, essentially we have two types of parameters.
+- $\psi$ (Local Parameters): outputs for a single data point (e.g., the mean prediction for Image #1).
+- $\theta$ (Global Parameters): the weights of the network that produce $\psi$ for every data point.
+Later when we introduce how we actually perform *learning*, we'll optimize on $\theta$ instead of $\psi$:
+- $\psi$ is different for every single input. If we just optimized $\psi$, we would just be memorizing the dataset (setting $\mu = x$ for every point).
+- $\theta$ defines the function. We want to learn $f_\theta$ that generates the correct $\psi$ for any input (including new ones). 
  
 ## Likelihood, Sampling Distribution, Noise, Observation Model
 
@@ -50,35 +54,29 @@ The necessity of introducing a stochastic part (the likelihood/noise model) esse
 A mathematical function  is a **One-to-One** or **Many-to-One** mapping. It takes an input and produces exactly one fixed output.
 
 However, most real-world problems are **One-to-Many**.
-
-* **Deterministic:** Captures the **Rules**. (e.g., "Grammar," "Cats have ears," "Gravity").
-* **Likelihood/Noise (Stochastic):** Captures the **Variations**. (e.g., "Which word comes next," "The color of the cat," "The measurement error").
+- **Deterministic:** Captures the **Rules**. (e.g., "Grammar," "Cats have ears," "Gravity").
+- **Likelihood/Noise (Stochastic):** Captures the **Variations**. (e.g., "Which word comes next," "The color of the cat," "The measurement error").
 
 Without the stochastic part, our model is a rigid memorizer that collapses the rich, ambiguous world into a single, possibly incorrect, point.
 
 #### 1. The "One-to-Many" Problem (Ambiguity)
 
 In almost all interesting tasks, the input  does not contain enough information to perfectly determine the output .
-
-* **Example (LLM):** If the input is "The capital of...", the output is deterministic ("Paris" or "London" etc). But if the input is *"Once upon a time,"* the output could be *"there was a princess"* OR *"in a land far away"* OR *"a dragon woke up."*
-* **The Conflict:** If we forced  to be purely deterministic, it would have to pick **one** specific word (likely the average word, which is gibberish, or the most common one).
-* **The Solution:** By predicting a **distribution** (stochastic), we assign probabilities to *all* valid options. This allows the model to capture the reality that multiple answers are correct.
+- **Example (LLM):** If the input is "The capital of...", the output is deterministic ("Paris" or "London" etc). But if the input is *"Once upon a time,"* the output could be *"there was a princess"* OR *"in a land far away"* OR *"a dragon woke up."*
+- **The Conflict:** If we forced  to be purely deterministic, it would have to pick **one** specific word (likely the average word, which is gibberish, or the most common one).
+- **The Solution:** By predicting a **distribution** (stochastic), we assign probabilities to *all* valid options. This allows the model to capture the reality that multiple answers are correct.
 
 #### 2. Unobserved Variables (The "Hidden State")
 
 We rarely see the full state of the universe. We only see partial observations.
-
-* **Example (Physics/Coin Toss):** A coin toss is technically deterministic physics. If you knew the wind speed, exact force, air density, and angular momentum, you could calculate the result.
-* **The Reality:** We don't know those hidden variables.
-* **The Solution:** We model all those unobserved, complex hidden factors as **random noise** (). The "Stochastic Part" is essentially a trash bin where we dump everything our model cannot see or measure.
+- **Example (Physics/Coin Toss):** A coin toss is technically deterministic physics. If you knew the wind speed, exact force, air density, and angular momentum, you could calculate the result.
+- **The Reality:** We don't know those hidden variables.
+- **The Solution:** We model all those unobserved, complex hidden factors as **random noise** (). The "Stochastic Part" is essentially a trash bin where we dump everything our model cannot see or measure.
 
 #### 3. The Generative Requirement (Diversity)
 
-This is specific to Generative AI (Images, Text). If our model is purely deterministic:
-
-For example, every time we run the generation process for a picture of a *dog*, we will get **exact same pixel-perfect dog**, while we want to generate *new*, *different* dogs. Therefore, we introduce a random seed (Latent variable or noise ).
-
-Now, by sampling different random noise, we can produce infinite variations of dogs.
+This is specific to Generative AI (Images, Text). If our model is purely deterministic, for example, every time we run the generation process for a picture of a *dog*, we will get **exact same pixel-perfect dog**, while we want to generate *new*, *different* dogs. Therefore, we introduce a random seed (Latent variable or noise ).
+However, by sampling different random noise, we can produce infinite variations of dogs.
 
 
 ### Likelihood, Sampling, and Noise: The Rosetta Stone
@@ -100,7 +98,7 @@ $$p(y \mid x, \theta) \equiv p(y \mid \psi) \equiv p_\theta(y)$$
 | ----------------- | ----------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | $p(y\mid \theta)$ | Statistical | Likeihood / Statistical Conditioning | The probability of observing $y$, **given** model parameters $\theta$                                 | The *Data-Generation* Story. It highlights the causal dependency of the data on the model configuration.                          | - Likelihood Derivations $\mathcal{L}(\theta)$.<br>- Classical Parameter Estimation.<br>- Bayesian Inference (where $\theta$ is conditioned upon).                   |
 | $p_\theta(y)$     | Geometric   | Parameteric Family                   | The specific distribution from the family $\mathcal{P}$ indexed by $\theta$, evaluated at point $y$   | The Model as a Function. It treats the model as a manifold in the space of all possible distributions.                            | - Information Geometry.<br>- Optimization (Gradient Descent).<br>- Divergence measures (e.g., $\mathrm{KL}(p_{\text{data}} \,\|\, p_\theta)$).                       |
-| $p(y\mid \psi)$   | Mechanistic | Observation / Noise Model            | The probability of the target $y$ given the predicted parameters $\psi$ (where $\psi = f_\theta(x)$). | The **Prediction + Noise** mechanism. It specifies exactly how deviations between the model's prediction and reality are treated. | - Defining the Loss Function (e.g., Gaussian $\to$ MSE).<br>- Sampling / Generation (Drawing $\varepsilon$).<br>- Architecture Design (Choosing the output head). |
+| $p(y\mid \psi)$   | Mechanistic | Observation / Noise Model            | The probability of the target $y$ given the predicted parameters $\psi$ (where $\psi = f_\theta(x)$). | The **Prediction + Noise** mechanism. It specifies exactly how deviations between the model's prediction and reality are treated. | - Defining the Loss Function (e.g., Gaussian $\to$ MSE).<br>- Sampling / Generation (Drawing $\varepsilon$).|
 
 
 ---
@@ -111,30 +109,33 @@ From the **frequentist** perspective, probability is defined via frequencies:
 - For discrete variables, probabilities are estimated by counting occurrences
 - For continuous variables, probability density is inferred from samples
 
-From our observed dataset $\mathcal{D} = \{x_1, x_2, \dots, x_N\}$ where data are i.i.d., given model parameters $\theta$, the **likelihood** of the dataset under the model is: 
+From our observed dataset $\mathcal{D} = \{x_1, x_2, \dots, x_N\}$, where data are i.i.d. from the true distribution. 
+The **Likelihood** of the dataset under our model is the joint probability:
 $$P(D \mid \theta) = \prod_{k=1}^{N} P(x_k \mid \theta)$$
-Directly working with products of probabilities is numerically unstable (values become extremely small). Therefore, we maximize the **log-likelihood** instead:
+Directly optimization of this product is numerically unstable (values approache zero). Given logarithm is monotonic, we maximize the **log-likelihood** :
 $$\log P(D \mid \theta) = \sum_{k=1}^{N} \log P(x_k \mid \theta)$$
 
-Because the logarithm is monotonic, maximizing likelihood and maximizing log-likelihood are equivalent.
+## Maximum Likelihood Estimation (MLE)
 
-### Maximum Likelihood Estimation (MLE)
-We assume a *family of distributions* parameterized by $\theta$ (e.g. Gaussian with mean and variance), and choose parameters that best explain the observed data: $$
+Given the *family of distribution* parameterized by $\theta$ 
+$$\mathcal P = \{p_\theta: \theta \in \Theta\},$$
+the MLE objective seeks the parameter $\hat{\theta}_{\text{MLE}}$ that maximizes the fit to the observed data. $$
 \begin{align} 
 \hat \theta_{\text{MLE}} &= \arg \max_\theta \log P(D\mid\theta) \\
 &= \arg \max_\theta \sum_{k=1}^N \log P(x_i\mid\theta) \\
 &= \arg \min_\theta \frac{1}{N}\sum_{k=1}^N -\log P(x_i\mid\theta) \\
 &= \arg \min_\theta \mathbb E_{x \sim \hat p(x)} \left [- \log P(x\mid\theta) \right]
-\end{align}$$ where $\hat p(x)$ is the empirical data distribution, i.e. sampling from $\hat p(x)$ means uniformly pick a data point from the dataset.
-	Interpretation: the probability if I pick one observation uniformly at random from my **dataset**
-	Given dataset $D = \{ x_1, x_2, \dots x_N\}$, the empirical distribution: $$\hat p(x) = \frac{1}{N} \sum_{k=1}^N \delta (x - x_k)$$ 
-	where $\delta (\cdot)$ is the Dirac delta
-		$\delta(x - a)$ is zero everywhere except $x = a$ ; 
-		$\int_{-\infty}^{\infty} f(x)\,\delta(x-a)\,dx = f(a)$  
+\end{align}
+$$where $\hat p(x)$ is the **Empirical Data Distribution**. Sampling from $\hat p(x)$ is equivalent to picking a data point uniformally at random from data set $D$.
+Formally, using the **Dirac** delta $\delta(\cdot)$:
+$$\hat p(x) = \frac{1}{N} \sum_{k=1}^N \delta (x - x_k)$$ 
 
-i.e. MLE fits model parameters so that the model is most likely to generate the observed samples.
+MLE minimizes the expected negative log-likelihood (NLL) over the observed empirical distribution.
 
-### KL Divergence Equivalence of MLE
+## KL Divergence Equivalence of MLE
+
+Minimizing Negative Log-Likelihood (NLL) is mathematically equivalent to minimizing the "distance" between the True Data Distribution (though we never assume a parametric form) and our Model.
+
 Let $p_{\text{data}}(x)$ be the true, unknown data distribution, and $p(x \mid \theta)$ be the model distribution, then $$\hat \theta_{\text{MLE}} = \arg \min_\theta \mathrm{KL}\big(p_{\text{data}}(x) \,\|\, p(x\mid \theta)\big)$$
 where the expanded form $$\mathrm KL = \int p_{\text{data}}(x) \log \frac{p_{\text{data}}(x)}{p(x \mid \theta)} dx$$ 
 We already established $$
@@ -188,77 +189,8 @@ In practice:
 
 
 
-# **Learning: Maximum Likelihood Estimation (MLE) and Maximum A Posteriori (MAP)**
-
-Having defined our model as a parametric family of distributions , we now define the **objective**: How do we choose the optimal parameters ?
-
-## **1. The Frequentist Viewpoint: Likelihood**
-
-From the frequentist perspective, we assume there is a fixed, true parameter that generates the data. We estimate it by asking: *"Which parameters make our observed dataset most probable?"*
-
-Suppose we observe a dataset  drawn i.i.d. from the true distribution. The **Likelihood** of the dataset under our model is the joint probability:
 
 
-Direct optimization of this product is numerically unstable (values approach zero). Therefore, we maximize the **Log-Likelihood**:
-
-
-### **2. Maximum Likelihood Estimation (MLE)**
-
-The MLE objective seeks the parameter  that maximizes the fit to the observed data.
-
-#### **Derivation: From Sums to Expectations**
-
-We can rewrite the maximization as a minimization of the negative average log-likelihood:
-
-Here,  is the **Empirical Data Distribution** defined by the dataset. Sampling from  is equivalent to picking a data point uniformly at random from .
-Formally, using the Dirac delta :
-
-
-> **Interpretation:** MLE minimizes the expected negative log-likelihood (NLL) over the *observed* empirical distribution.
-
----
-
-### **3. The Connection to "Truth" (KL Divergence)**
-
-Why is minimizing NLL a good idea? It is mathematically equivalent to minimizing the "distance" between the True Data Distribution and our Model.
-
-Let  be the true, unknown data-generating distribution. By the **Law of Large Numbers**, as , the empirical expectation converges to the true expectation:
-
-
-#### **The KL Equivalence Proof**
-
-The optimization problem becomes minimizing the Cross-Entropy between Truth and Model:
-
-
-We can expand the KL Divergence term:
-
-Since the Entropy of the true data  is a constant with respect to our model parameters , minimizing KL Divergence is identical to maximizing Likelihood.
-
-**Implication:**
-MLE minimizes the **Forward KL Divergence**.
-
-* This effectively forces the model to "cover" the data.
-* Heavily penalizes the model for assigning low probability to real data points (missing modes).
-* Does not heavily penalize assigning probability to regions where data *doesn't* exist (potential for hallucinations).
-
----
-
-### **4. When Data is Scarce: Maximum A Posteriori (MAP)**
-
-When the dataset is small, MLE can overfit (memorizing noise in  rather than learning ).
-In these cases, we adopt a **Bayesian** perspective by introducing a **Prior** distribution  over the parameters themselves.
-
-Using Bayes’ Rule:
-
-
-The MAP objective maximizes the **Posterior** probability of the parameters:
-
-**Interpretation:**
-
-* **MLE:** 
-* **MAP:** 
-
-*Note: The choice of the Prior  (e.g., Gaussian, Laplace) leads directly to regularization terms (like Weight Decay), which we will discuss in the Loss Functions section.*
 
 
 
@@ -394,14 +326,6 @@ This is not "generating" data, but "aligning" distributions.
 | **Image Understanding** | Image + Text Query | Logits (Next Token Scores) | **Categorical** (Multinomial) | Cross-Entropy |
 | **Diffusion (Generation)** | Noisy Image + Prompt | Predicted Noise () | **Gaussian** (Normal) | MSE () |
 | **CLIP (Matching)** | Image + Text | Embedding Vectors | **Categorical** (over batch) | Contrastive Loss |
-
-
-
-## Model Workflow
-- the model outputs parameters of a distribution (e.g., mean, logits),
-- the likelihood converts that output into a probability of observing x.
-
-
 
 
 
