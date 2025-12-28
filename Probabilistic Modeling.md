@@ -9,33 +9,44 @@ tags:
 # Data
 
 - The **Real** Distribution: We consider supervised or self-supervised learning settings where we observe samples $x \in \mathcal{X}$ drawn i.i.d. from an **unknown data-generating distribution** $p_{\text{data}}(x)$, where we **never** assume a *paramaetric* form for $p_{\text{data}}$ itself.
-- The **Dataset** $(\mathcal{D})$: A finite set of samples $D = \{x_1, x_2, \dots, x_N\} \sim p_{\text{data}}$ observed from the real distribution.
+    - In Supervised/Conditional settings, each sample $x$ is a tuple: $x = (u, y)$.
+    - $u$ (Context/Input): The information we condition on (e.g., Image, Text Prompt, Features).
+    - $y$ (Target/Observable): The variable we want to predict or model (e.g., Label, Next Token, Denoised Pixel).
+- The **Dataset** $(\mathcal{D})$: A finite set of samples observed from the real distribution.
+$$
+D = \{x_1, \dots, x_N\} = \{(u_1, y_1), \dots, (u_N, y_N)\}
+\sim p_{\text{data}} 
+$$
+
 
 # Model
 
-We define a **Model** as a **Parametric Family of Probability Distributions**.
-Let 
+We define a **Model** as a **Parametric Family of Probability Distributions**. Let 
 
 $$
-\mathcal{P} = \{p_\theta: \theta \in \Theta\}
+\mathcal{P} = \{p_\theta(y \mid u): \theta \in \Theta\}
 $$
 
 be a family of probability distributions indexed by parameters $\theta$ in a parameter space $\Theta$.
 
 Our model consists of two coupled components:
-- The Parameter Mapping (**Deterministic**): A function $f_\theta$ that maps input context $x$ to distribution **parameters** $\psi$.
+- The Parameter Mapping (**Deterministic**): A function $f_\theta$ that maps input context $u$ to distribution **parameters** $\psi$.
+
+$$
+\psi = f_\theta(u)
+$$
+
 - The Sampling Distribution (**Stochastic**): A specific probability density form $p(\cdot \mid \psi)$ that defines how the target $y$ is distributed given those parameters ($f_\theta$).
 
 ## Workflow
 
-We never assume the *true* data distribution $p_{\text{data}}(y \mid x)$. Instead, we assume a *conditional* distribution $p(y \mid \psi)$, the output observed $y$ conditioned on our fixed parameter $\theta$ and input conditioned information (context) $x$.
+We never assume the parametric form of the *true* data distribution $p_{\text{data}}(y \mid u)$. Instead, we assume a *conditional* distribution $p(y \mid \psi)$, the output $y$ conditioned on our fixed parameter $\theta$ and input conditioned information (context) $u$.
 
-This is equivalent to drawing from the distribution that we (as the modeler) assume, with the sufficient statistics that our deterministic base model outputs given the input $x$. Below is a concrete breakdown.
+This is equivalent to drawing from the distribution that we (as the modeler) assume, using *local* distribution parameters $\psi$ output by our deterministic base model.
 
-1. **Input**($x$): the context. 
-    e.g. "The cat sits on", or features for our regression;
-2. **Model**($f_\theta$): the deterministic calculation.
-3. **Sufficient Statistics**($\psi$): the result of the calculation.
+1. **Input**($u$): The context (e.g. *"The cat sits on"*). 
+2. **Model**($f_\theta$): The deterministic calculation.
+3. **Sufficient Statistics**($\psi$): The result of the calculation, output parameters.
     e.g. logits of the next token over vocabularty, or probability of dog or cat [0.1, 0.9]
 4. **Assumed Distribution**($p(y \mid \psi)$): the template.
     e.g. We assume: "The next word follows a Categorical distribution defined by $\psi$."
@@ -47,7 +58,7 @@ Note that, essentially we have two types of parameters.
 - $\psi$ (Local Parameters): outputs for a single data point (e.g., the mean prediction for Image #1).
 - $\theta$ (Global Parameters): the weights of the network that produce $\psi$ for every data point.
 Later when we introduce how we actually perform *learning*, we'll optimize on $\theta$ instead of $\psi$:
-- $\psi$ is different for every single input. If we just optimized $\psi$, we would just be memorizing the dataset (setting $\mu = x$ for every point).
+- $\psi$ is different for every single input. If we just optimized $\psi$, we would just be memorizing the dataset (setting $\mu = u$ for every point).
 - $\theta$ defines the function. We want to learn $f_\theta$ that generates the correct $\psi$ for any input (including new ones). 
  
 ## Likelihood, Sampling Distribution, Noise, Observation Model
@@ -55,51 +66,47 @@ Later when we introduce how we actually perform *learning*, we'll optimize on $\
 ### Motivation: Why We need Stochastic
 
 The necessity of introducing a stochastic part (the likelihood/noise model) essentially boils down to one fact: **The world is not a mathematical function.**
-A mathematical function  is a **One-to-One** or **Many-to-One** mapping. It takes an input and produces exactly one fixed output.
-
+A mathematical function  is a **Many-to-One** mapping. It takes an input and produces exactly one fixed output.
 However, most real-world problems are **One-to-Many**.
-- **Deterministic:** Captures the **Rules**. (e.g., "Grammar," "Cats have ears," "Gravity").
-- **Likelihood/Noise (Stochastic):** Captures the **Variations**. (e.g., "Which word comes next," "The color of the cat," "The measurement error").
+- Ambiguity: "The capital of..." is deterministic. "Once upon a time..." implies thousands of valid continuations. A deterministic model would collapse these into a single (likely incorrect) average.
+- Unobserved Variables: We rarely observe the full state of the universe. The "Stochastic Part" captures the variations caused by hidden factors we cannot measure.
+- Generative Diversity: To generate new samples (e.g., different images of dogs), we need a source of randomness to sample from.
 
-Without the stochastic part, our model is a rigid memorizer that collapses the rich, ambiguous world into a single, possibly incorrect, point.
+### Terminology Equivalence
 
-#### 1. The "One-to-Many" Problem (Ambiguity)
+While distinct terms are used across fields, they refer to the exact same mathematcial object: the conditional probability distribution $p(y \mid \psi)$.
 
-In almost all interesting tasks, the input  does not contain enough information to perfectly determine the output .
-- **Example (LLM):** If the input is "The capital of...", the output is deterministic ("Paris" or "London" etc). But if the input is *"Once upon a time,"* the output could be *"there was a princess"* OR *"in a land far away"* OR *"a dragon woke up."*
-- **The Conflict:** If we forced  to be purely deterministic, it would have to pick **one** specific word (likely the average word, which is gibberish, or the most common one).
-- **The Solution:** By predicting a **distribution** (stochastic), we assign probabilities to *all* valid options. This allows the model to capture the reality that multiple answers are correct.
-
-#### 2. Unobserved Variables (The "Hidden State")
-
-We rarely see the full state of the universe. We only see partial observations.
-- **Example (Physics/Coin Toss):** A coin toss is technically deterministic physics. If you knew the wind speed, exact force, air density, and angular momentum, you could calculate the result.
-- **The Reality:** We don't know those hidden variables.
-- **The Solution:** We model all those unobserved, complex hidden factors as **random noise** (). The "Stochastic Part" is essentially a trash bin where we dump everything our model cannot see or measure.
-
-#### 3. The Generative Requirement (Diversity)
-
-This is specific to Generative AI (Images, Text). If our model is purely deterministic, for example, every time we run the generation process for a picture of a *dog*, we will get **exact same pixel-perfect dog**, while we want to generate *new*, *different* dogs. Therefore, we introduce a random seed (Latent variable or noise ).
-However, by sampling different random noise, we can produce infinite variations of dogs.
-
-
-### Likelihood, Sampling, and Noise: The Rosetta Stone
-#### Equivalence of Terms
 | Term                      | Context      | Math Form                                            | Definition & Intuition                                                                                                                    |
 | ------------------------- | ------------ | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | **Observation Model**     | Architecture | $y \sim \mathcal{P}(\psi)$                           | The *Blueprint*. The design choice defining the family of distribution (e.g. *"We assume the head outputs Gaussian paramaeters"*).        |
 | **Likelihood**            | Training     | $\mathcal{L}(\theta) = p(y_{\text{real}} \mid \psi)$ | The *Scoreboard*. The probability density assigned to observed real data given the model's current parameters; used to compute gradients. |
 | **Sampling Distribution** | Inference    | $y_\text{next} \sim p(\cdot \mid \psi)$              | The *Generator*. The probability cloud from which we draw samples to generate new data (hallucinating plausible outputs).                 |
-| **Noise Model**           | Physics      | $\sigma \sim p_\sigma(\cdot)$                        | The *Fuzz*. The source of stochasticity, explaining why $y \neq f_\theta(x)$, defining how deviations are penalized.                      |
+| **Noise Model**           | Physics      | $\epsilon \sim p_\epsilon(\cdot)$                        | The *Fuzz*. The source of stochasticity, explaining why $y \neq f_\theta(x)$, defining how deviations are penalized.                      |
 
-#### Conditional Independence Theorem
-The global model parameters $\theta$ do not influence the data $y$ directly. They only influence the data through the local distribution parameters $\psi$.We postulate the following causal chain:
+### Clarification: Additive Noise vs. Stochastic Sampling
+
+It is crucial to note that "Noise" is often used as a metaphor for stochasticity, but its mathematical implementation differs by domain.
+1. Continuous Models (Regression, Diffusion) Here, the noise is explicit and additive. We conceptualize the target as the deterministic prediction plus a random error term.
+$$
+y = f_\theta(u) + \varepsilon, \quad \text{where } \varepsilon \sim \mathcal{N}(0, \sigma^2 I)
+$$
+    - The "Noise": $\varepsilon$ is a real-valued vector added to the signal.
+    - Intuition: Measurement error, vibration, thermal noise.
+2. Discrete Models (LLMs, Classification) Here, the target is **Categorical**. The concept of "additive noise" breaks down (e.g., you cannot calculate "Cat + $\varepsilon$"). Instead, "noise" refers to the inherent ambiguity of the sampling process.
+$$
+y \sim \text{Categorical}(\psi)
+$$
+    - The "Noise": There is no external $\varepsilon$ variable added. The stochasticity comes from the act of drawing from the distribution itself (rolling the weighted die).
+    - Intuition: Aleatoric uncertainty. The input implies multiple valid outputs; the "noise" is the randomness of selection.
+
+### Conditional Independence Theorem
+The global model parameters $\theta$ do not influence the data $y$ directly. They only influence the data through the local distribution parameters $\psi$. We postulate the following causal chain:
 
 $$
 \theta \xrightarrow{\text{Deterministic}} \psi \xrightarrow{\text{Stochastic}} y
 $$
 
-Once the sufficient statistics $\psi$ are known, the global weights $\theta$ provide no additional information about the target $y$:
+Once the local distribution parameters $\psi$ are known, the global weights $\theta$ provide no additional information about the target $y$:
 
 $$
 y \perp \!\!\! \perp \theta \mid \psi
@@ -108,15 +115,14 @@ $$
 Mathematically, this simplifies the conditional probability:
 
 $$
-p(y \mid x, \theta) \equiv p(y \mid \psi) \equiv p_\theta(y)
+p(y \mid u, \theta) \equiv p(y \mid \psi) \equiv p_\theta(y)
 $$
 
-
-|                   | Viewpoint   | Name                                 | Meaning                                                                                               | Emphasize                                                                                                                         | Context                                                                                                                                                                 |
-| ----------------- | ----------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| $p(y\mid \theta)$ | Statistical | Likeihood / Statistical Conditioning | The probability of observing $y$, **given** model parameters $\theta$                                 | The *Data-Generation* Story. It highlights the causal dependency of the data on the model configuration.                          | - Likelihood Derivations $\mathcal{L}(\theta)$.<br>- Classical Parameter Estimation.<br>- Bayesian Inference (where $\theta$ is conditioned upon).                   |
-| $p_\theta(y)$     | Geometric   | Parameteric Family                   | The specific distribution from the family $\mathcal{P}$ indexed by $\theta$, evaluated at point $y$   | The Model as a Function. It treats the model as a manifold in the space of all possible distributions.                            | - Information Geometry.<br>- Optimization (Gradient Descent).<br>- Divergence measures (e.g., $\mathrm{KL}(p_{\text{data}} \,\|\, p_\theta)$).                       |
-| $p(y\mid \psi)$   | Mechanistic | Observation / Noise Model            | The probability of the target $y$ given the predicted parameters $\psi$ (where $\psi = f_\theta(x)$). | The **Prediction + Noise** mechanism. It specifies exactly how deviations between the model's prediction and reality are treated. | - Defining the Loss Function (e.g., Gaussian $\to$ MSE).<br>- Sampling / Generation (Drawing $\varepsilon$).|
+| Viewpoint | Name | Meaning | Emphasis |
+| --- | --- | --- | --- |
+| Statistical | $p(y\mid\theta)$ | Likelihood | Probability of observing $y$ given $\theta$ |
+| Geometric | $p_\theta(y)$ | Parametric Family | Distribution from family $\mathcal{P}$ indexed by $\theta$ |
+| Mechanistic | $p(y \mid \psi)$ | Observation Model / Noise | Probability of $y$ given statistics $\psi$ |
 
 
 ---
@@ -127,17 +133,17 @@ From the **frequentist** perspective, probability is defined via frequencies:
 - For discrete variables, probabilities are estimated by counting occurrences
 - For continuous variables, probability density is inferred from samples
 
-From our observed dataset $\mathcal{D} = \{x_1, x_2, \dots, x_N\}$, where data are i.i.d. from the true distribution. 
+From our observed dataset $\mathcal{D} = \{(u_1, y_1), \dots, (u_N, y_N)\}$, where data are i.i.d. from the true distribution. 
 The **Likelihood** of the dataset under our model is the joint probability:
 
 $$
-P(D \mid \theta) = \prod_{k=1}^{N} P(x_k \mid \theta)
+P(D \mid \theta) = \prod_{i=1}^{N} P(y_i \mid u_i, \theta)
 $$
 
 Directly optimization of this product is numerically unstable (values approache zero). Given logarithm is monotonic, we maximize the **log-likelihood** :
 
 $$
-\log P(D \mid \theta) = \sum_{k=1}^{N} \log P(x_k \mid \theta)
+\log P(D \mid \theta) = \sum_{i=1}^{N} \log P(y_i \mid \theta)
 $$
 
 ## Maximum Likelihood Estimation (MLE)
