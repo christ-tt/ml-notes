@@ -255,6 +255,29 @@ Every specific loss (MSE, MAE, CE) is simply the NLL derived from a specific cho
 
 ## Continous Targets: Regression
 
+When the target is continuous $y\in \mathbb{R}$, we typically model the uncerntainty as the *additive* noise.
+
+### Gaussian Noise $\to$ Mean Squared Error (MSE)
+
+**Assumption**: The target is drawn from the Normal Distribution centered at the model's prediction $\mu$, with fixed variance $\sigma^2 = 1$.
+
+$$
+\begin{align}
+y \mid \mu &\sim \mathcal{N}(\mu, 1)\\
+p(y \mid \mu) &= \frac{1}{\sqrt{2\pi}}\exp \left(-\frac{(y-\mu)^2}{2}\right)
+\end{align}
+$$
+
+
+
+
+
+
+
+
+
+
+
 
 
 
