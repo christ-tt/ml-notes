@@ -8,7 +8,7 @@ tags:
 
 # Data
 
-- The **Real** Distribution: We consider supervised or self-supervised learning settings where we observe samples $x \in \mathcal{X}$ drawn i.i.d. from an **unknown data-generating distribution** $p_{\text{data}}(x)$, where we **never** assume a *paramaetric* form for $p_{\text{data}}$ itself.
+- The **Real** Distribution: We consider supervised or self-supervised learning settings where we observe samples $x \in \mathcal{X}$ drawn i.i.d. from an **unknown data-generating distribution** $p_{\text{data}}(x)$, where we **never** assume a *parametric* form for $p_{\text{data}}$ itself.
     - In Supervised/Conditional settings, each sample $x$ is a tuple: $x = (u, y)$.
     - $u$ (Context/Input): The information we condition on (e.g., Image, Text Prompt, Features).
     - $y$ (Target/Observable): The variable we want to predict or model (e.g., Label, Next Token, Denoised Pixel).
@@ -30,7 +30,7 @@ $$
 be a family of probability distributions indexed by parameters $\theta$ in a parameter space $\Theta$.
 
 Our model consists of two coupled components:
-- The Parameter Mapping (**Deterministic**): A function $f_\theta$ that maps input context $u$ to distribution **parameters** $\psi$.
+- The Parameter Mapping (**Deterministic** network): A function $f_\theta$ that maps input context $u$ to distribution **parameters** $\psi$.
 
 $$
 \psi = f_\theta(u)
@@ -45,7 +45,7 @@ We never assume the parametric form of the *true* data distribution $p_{\text{da
 This is equivalent to drawing from the distribution that we (as the modeler) assume, using *local* distribution parameters $\psi$ output by our deterministic base model.
 
 1. **Input**($u$): The context (e.g. *"The cat sits on"*). 
-2. **Model**($f_\theta$): The deterministic calculation.
+2. **Network**($f_\theta$): The deterministic calculation.
 3. **Sufficient Statistics**($\psi$): The result of the calculation, output parameters.
     e.g. logits of the next token over vocabularty, or probability of dog or cat [0.1, 0.9]
 4. **Assumed Distribution**($p(y \mid \psi)$): the template.
@@ -118,11 +118,11 @@ $$
 p(y \mid u, \theta) \equiv p(y \mid \psi) \equiv p_\theta(y)
 $$
 
-| Viewpoint | Name | Meaning | Emphasis |
-| --- | --- | --- | --- |
-| Statistical | $p(y\mid\theta)$ | Likelihood | Probability of observing $y$ given $\theta$ |
-| Geometric | $p_\theta(y)$ | Parametric Family | Distribution from family $\mathcal{P}$ indexed by $\theta$ |
-| Mechanistic | $p(y \mid \psi)$ | Observation Model / Noise | Probability of $y$ given statistics $\psi$ |
+| Viewpoint   | Name             | Meaning            | Emphasis                                                   |
+| ----------- | ---------------- | ------------------ | ---------------------------------------------------------- |
+| Statistical | $p(y\mid\theta)$ | Likelihood         | Probability of observing $y$ given $\theta$                |
+| Geometric   | $p_\theta(y)$    | Parametric Family  | Distribution from family $\mathcal{P}$ indexed by $\theta$ |
+| Mechanistic | $p(y \mid \psi)$ | Observation Model  | Probability of $y$ given statistics $\psi$                 |
 
 
 ---
@@ -140,10 +140,10 @@ $$
 P(D \mid \theta) = \prod_{i=1}^{N} P(y_i \mid u_i, \theta)
 $$
 
-Directly optimization of this product is numerically unstable (values approache zero). Given logarithm is monotonic, we maximize the **log-likelihood** :
+Directly optimization of this product is numerically unstable (values approaches zero). Given logarithm is monotonic, we maximize the **log-likelihood** :
 
 $$
-\log P(D \mid \theta) = \sum_{i=1}^{N} \log P(y_i \mid \theta)
+\log P(D \mid \theta) = \sum_{i=1}^{N} \log P(y_i \mid u_i, \theta)
 $$
 
 ## Maximum Likelihood Estimation (MLE)
@@ -165,7 +165,7 @@ $$
 \end{align}
 $$
 
-where $\hat p(x)$ is the **Empirical Data Distribution**. Sampling from $\hat p(x)$ is equivalent to picking a data point uniformally at random from data set $D$.
+where $\hat p(x)$ is the **Empirical Data Distribution**. Sampling from $\hat p(x)$ is equivalent to picking a data point uniformaly at random from data set $D$.
 Formally, using the **Dirac** delta $\delta(\cdot)$:
 
 $$
@@ -176,7 +176,9 @@ MLE minimizes the expected negative log-likelihood (NLL) over the observed empir
 
 ## KL Divergence Equivalence of MLE
 
-Minimizing Negative Log-Likelihood (NLL) is mathematically equivalent to minimizing the "distance" between the True Data Distribution (though we never assume a parametric form) and our Model.
+Minimizing Negative Log-Likelihood (NLL) is mathematically equivalent to minimizing the "distance" between the True Data Distribution and our Model.
+
+Though we never assume a parametric form for the True Data Distribution, MLE effectively projects this complex, unknown reality onto our model family.
 
 Let $p_{\text{data}}(x)$ be the true, unknown data distribution.
 By **Law of Large Numbers**, as $N \to \infty$ , $\hat p(x) \to p_{\text{data}}(x)$. The empirical expectation converges to the true expectation: 
