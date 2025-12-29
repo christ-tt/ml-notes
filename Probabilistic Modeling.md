@@ -264,9 +264,18 @@ When the target is continuous $y\in \mathbb{R}$, we typically model the uncernta
 $$
 \begin{align}
 y \mid \mu &\sim \mathcal{N}(\mu, 1)\\
-p(y \mid \mu) &= \frac{1}{\sqrt{2\pi}}\exp \left(-\frac{(y-\mu)^2}{2}\right)
+p(y \mid \mu) &= \frac{1}{\sqrt{2\pi}}\exp \left(-\frac{(y-\mu)^2}{2}\right) \\
+- \log p(y \mid \mu) &= -\log(\frac{1}{\sqrt{2\pi}}) - \frac{-(y - \mu)^2}{2} \\
+&= \frac{1}{2}\|y - \mu\|^2 + \text{constant}
 \end{align}
 $$
+
+- Minimizing NLL is equivalent to minimizing **L2** Distance (MSE);
+- Large errors are penalized quadratically.
+- The model estimates the conditional mean $\mathbb{E}[y \mid \mu]$
+
+
+
 
 
 
