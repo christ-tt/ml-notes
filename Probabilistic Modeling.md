@@ -6,7 +6,7 @@ tags:
 ---
 
 
-# Data
+# **Data**
 
 - The **Real** Distribution: We consider supervised or self-supervised learning settings where we observe samples $x \in \mathcal{X}$ drawn i.i.d. from an **unknown data-generating distribution** $p_{\text{data}}(x)$, where we **never** assume a *parametric* form for $p_{\text{data}}$ itself.
     - In Supervised/Conditional settings, each sample $x$ is a tuple: $x = (u, y)$.
@@ -19,7 +19,7 @@ D = \{x_1, \dots, x_N\} = \{(u_1, y_1), \dots, (u_N, y_N)\}
 $$
 
 
-# Model
+# **Model**
 
 We define a **Model** as a **Parametric Family of Probability Distributions**. Let 
 
@@ -127,7 +127,7 @@ $$
 
 ---
 
-# Learning
+# **MLE & MAP**
 ## **Frequentist viewpoint and (Log) likelihood**
 From the **frequentist** perspective, probability is defined via frequencies:
 - For discrete variables, probabilities are estimated by counting occurrences
@@ -240,6 +240,20 @@ $$
 In practice, the choice of the prior (e.g. Gaussian, Laplace) leads directly to *regularization* terms (like Weight Decay), which we will discuss in later sections.
 
 
+# **Loss**
+
+In deep learning engineering, we often treat *Loss functions* as different *measuring* sticks, e.g. 
+    - *Mean Squared Error* measures distance.
+    - *Cross Entropy* measures surprise.
+From the probabilistic persepctive, however, there's only **ONE** loss function: *Negative Log Likelihood* (NLL).
+
+$$
+\mathcal{L}(\theta) = - \log p(y \mid \psi)
+$$
+
+Every specific loss (MSE, MAE, CE) is simply the NLL derived from a specific choice of **Observation Model** (Noise Distribution).
+
+## Continous Targets: Regression
 
 
 
@@ -392,51 +406,6 @@ This is not "generating" data, but "aligning" distributions.
 
 
 
-# Loss
-From the model $$y = f_\theta(\mu) + \epsilon$$
-we get the likelihood $$p(y\mid \mu, \theta) = \mathcal N(y \mid f_\theta(\mu), \sigma^2)$$answering: how plausible is the observed output given the model prediction?
-
-Negative log-likehood is exactly MSE, and there's only a single objective $$-\log p(y \mid u, \theta) \propto \|y - f_\theta(u)\|^2$$ $$ \arg\min_\theta \sum_i \|y_i - f_\theta(u_i)\|^2$$
-- Fits the outputs = make likelihood high
-- Handle noise = define how deviations are penalized.
-
-Given parameters $\theta$, the model produces either 
-- a point prediction $\hat x_\theta=f_\theta(\cdot)$ (regression / AE) or 
-- distribution parameters $\eta_\theta(\cdot)$ (classification / LLM). 
-We then specify an *observation/noise* model $p(x\mid \hat x_\theta)$ (or $p(x\mid \eta_\theta)$), which is the only place where “noise” enters. 
-Training chooses $\theta$ to maximize the probability of the observed dataset $D=\{x_i\}_{i=1}^N$_:_
-
-$$\hat\theta=\arg\max_\theta \log p(D\mid \theta)=\arg\max_\theta \sum_{i=1}^N \log p(x_i\mid \theta) \equiv \arg\max_\theta \sum_{i=1}^N \log p(x_i\mid \hat x_{\theta,i}),$$
-
-where $\hat x_{\theta,i}=f_\theta(\cdot)$ is the model prediction for sample i. Defining the per-sample loss as the **negative log-likelihood**,
-$$
-\mathcal L(x_i;\theta)\;\stackrel{\text{def}}{=}\;-\log p(x_i\mid \theta)=-\log p(x_i\mid \hat x_{\theta,i}),
-$$
-the same objective becomes empirical risk minimization:
-
-$$\hat\theta=\arg\min_\theta \sum_{i=1}^N \mathcal L(x_i;\theta).$$
-
-Thus there are not two separate objectives: 
-- “fit outputs” is achieved by making $p(x_i\mid \hat x_{\theta,i})$ large (so $x_i$ is close to $\hat x_{\theta,i}$), 
-- while “handling noise” is simultaneously encoded by the chosen form of $p(\cdot\mid \hat x)$, which determines _how_ deviations are penalized (e.g., Gaussian noise $p(x\mid\hat x)=\mathcal N(\hat x,\sigma^2I)$ yields $\mathcal L\propto \|x-\hat x\|^2$; categorical $p(x_t\mid x_{<t})$ yields cross-entropy).
-
----
-
-
-
-The goal of learning is to construct a **model** $f_\theta$ that **approximates** the data, by 
-- Maximizing Likelihood: minimizing KL divergence;
-- Minimizing Loss under the true data distribution.
-$$
-\theta^\star \approx \arg \min_\theta \mathbb E_{x \sim p_{\text{data}(x)}}\big [\mathcal L(x; \theta)\big]$$
-
-
-Given a noise model, the learning objective is derived via the **negative log-likelihood**:
-$$
-\mathcal L(x, \hat x_\theta) \;\stackrel{\text{def}}{=}\; -\log p(x \mid \hat x_\theta).
-$$
-  
-Thus:
 > **A loss function is simply a negative log-likelihood under an assumed noise model.**
 
 | **Noise model** p(x \mid \hat x) | **Interpretation**  | **Resulting loss**    |
@@ -581,61 +550,4 @@ This is the difference between an **Artist** and a **Critic**.
 | **Generative** | LLM, Diffusion, VAE | **Self-Supervised** (Data predicts itself) | **The Distribution:** The shape, density, and structure of the data manifold. |
 | **Discriminative** | ResNet (ImageNet), Spam Filter | **Supervised** (Human labels) | **The Boundary:** The surface separating Class A from Class B. |
 | **Hybrid** | CLIP (Contrastive) | **Web-Supervised** (Alt-text) | **Alignment:** It learns a "Joint Space" where boundaries between images align with boundaries between text. |
-
-
-
-
-
-
-
-
-
-
-
-
-# No Use
-Equivalently, we assume:
-$$x = \hat x_\theta + \varepsilon, \quad \varepsilon \sim p_\varepsilon(\cdot)$$,
-
-where:
-- $\varepsilon$ is an abstract noise variable,
-- $p_\varepsilon$ is chosen by the modeler.
-
-Noise means how we choose to interpret discrepancies between model prediction and data; different assumptions of the distribution of the noise are how we *think* we should interpret the errors. 
-* For example, normal means small errors are common, large errors are increasingly unlikely; errors are symmetric, and errors should be penalized quadratically, *L2*
-* Laplace noise assume mostly clean data, but occasionally huge outliers *L1* 
-
-By assuming the conditional distribution, we are imposing our belief about the nature of the error.
-
-If we assume Gaussian: We are saying "The model's prediction is the average, and errors are symmetric noise."
-
-If we assume Categorical: We are saying "The world is a set of discrete choices, and the model predicts preference scores."
-
-
-## Reparametrization
-$$p(x \mid \theta) \;\equiv\; p(x \mid \hat x_\theta)$$
-where
-* $\hat x_\theta$ is the man / location parameter
-* randomness comes from $\epsilon$, not from $\theta$, as $\theta$ determines a deterministic prediction $\hat x_\theta$,
-- all randomness in x is modeled **conditionally on** $\hat x_\theta$.
-
-This factorization is valid because, once we know the model's prediction $\hat x_\theta$, the parameters $\theta$ no longer matter for generating $x$:
-$$x \;\perp\!\!\!\perp\; \theta \;\mid\; \hat x_\theta.$$
-
-
-Our model, $f_\theta$ , is not trying to approximate $p_\text{data}$ directly. Instead, it approximates a **decision function** derived from the loss.
-Given our learning objective $$\theta^* = \arg \min_\theta \mathbb E_{x \sim p_{\text{data}}} \big [\mathcal L(x;\theta)\big]$$ our optimal predictor $$f^* = \arg \min_f \mathbb E_{x \sim p_{\text{data}}} \big [\mathcal L(x, f(x))\big]$$
-
-
-where the specific form of the loss $\mathcal L$ depends on how the data sample $x$ is structured and how the model is tasked to use it.
-* **Supervised Learning**: 
-	* $x = (\mu, y)$ where $\mu$ is the input and $y$ is the target; 
-	* the loss measured predictive error $\mathcal L(y, f_\theta(\mu))$
-* **Self-supervised Learning / Autoencoders**: 
-	* $x$ is both input and target; 
-	* the loss measures reconstruction fidelity $\mathcal L(x, \hat x_\theta)$. 
-
-
----
-
 
