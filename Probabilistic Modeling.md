@@ -18,6 +18,7 @@ D = \{x_1, \dots, x_N\} = \{(u_1, y_1), \dots, (u_N, y_N)\}
 \sim p_{\text{data}} 
 $$
 
+---
 
 # **Model**
 
@@ -60,7 +61,9 @@ Note that, essentially we have two types of parameters.
 Later when we introduce how we actually perform *learning*, we'll optimize on $\theta$ instead of $\psi$:
 - $\psi$ is different for every single input. If we just optimized $\psi$, we would just be memorizing the dataset (setting $\mu = u$ for every point).
 - $\theta$ defines the function. We want to learn $f_\theta$ that generates the correct $\psi$ for any input (including new ones). 
- 
+
+---
+
 ## Likelihood, Sampling Distribution, Noise, Observation Model
 
 ### Motivation: Why We need Stochastic
@@ -82,6 +85,21 @@ While distinct terms are used across fields, they refer to the exact same mathem
 | **Likelihood**            | Training     | $\mathcal{L}(\theta) = p(y_{\text{real}} \mid \psi)$ | The *Scoreboard*. The probability density assigned to observed real data given the model's current parameters; used to compute gradients. |
 | **Sampling Distribution** | Inference    | $y_\text{next} \sim p(\cdot \mid \psi)$              | The *Generator*. The probability cloud from which we draw samples to generate new data (hallucinating plausible outputs).                 |
 | **Noise Model**           | Physics      | $\epsilon \sim p_\epsilon(\cdot)$                        | The *Fuzz*. The source of stochasticity, explaining why $y \neq f_\theta(x)$, defining how deviations are penalized.                      |
+
+Note that we use **Likelihood** for training, and **Sampling** for inference.
+In standard Supervised Learning (MLE), we do not sample during training, but in advanced Generative settings (RLHF, VAEs), we do sample during training, and we have special tricks to "learn" through that stochasticity.
+- Inference (**Generation**):$\theta \to \psi \xrightarrow{\text{Sample}} \hat{y}$; We create a new, fake reality.
+- Training (**Scoring**):$\theta \to \psi \xrightarrow{\text{Score}} y_{\text{real}}$; We measure the probability of the existing reality.
+
+e.g. Top-k / Top-p / Temperature: 
+- Inference-Time Heuristics for LLM decoding, not reflected / updated in training.
+    - non-differentiable *"hacks"* used to chop off the tail of the distribution because the model is **imperfect**.
+    - We use Top-p only because the model sometimes assigns small probability to garbage, and we want to manually force it to stay "safe."
+- In RLHF (Reinforcement Learning): sampling **is** reflected in training.
+    - PPO (Proximal Policy Optimization), we sample using top-p, temperature from the model during training.
+    - We verify if the sampled text is "good" or "bad" using a Reward Model.
+    - We then calculate a gradient to update $\theta$ so that the model becomes more likely to generate that specific "good" sample again.
+    - Because sampling is discrete and breaks back-propagation, we use the **Policy Gradient Theorem (REINFORCE)** to bypass the missing gradient.
 
 ### Clarification: Additive Noise vs. Stochastic Sampling
 
@@ -239,6 +257,7 @@ $$
 
 In practice, the choice of the prior (e.g. Gaussian, Laplace) leads directly to *regularization* terms (like Weight Decay), which we will discuss in later sections.
 
+---
 
 # **Loss**
 
@@ -272,7 +291,26 @@ $$
 
 - Minimizing NLL is equivalent to minimizing **L2** Distance (MSE);
 - Large errors are penalized quadratically.
-- The model estimates the conditional mean $\mathbb{E}[y \mid \mu]$
+- The model estimates the conditional **mean** $\mathbb{E}[y \mid \mu]$
+
+### Laplace Noise $\to$ Mean Absolute Error (MAE)
+
+**Assumption**: The target is drawn from a Laplace distribution (sharper peak, heavier tails).
+
+$$
+\begin{align}
+p(y\mid \mu) &= \frac{1}{2b}\exp\left(-\frac{|y-\mu|}{b}\right) \\
+-\log p(y \mid \mu) &\propto |y - \mu| + \text{const}
+\end{align}
+$$
+
+- Minimizing NLL is equivalent to minimizing the **L1** Distance (MAE).
+- The model estimates to the conditional **Median**.
+- Robust to outliers because the penalty grows linearly, not quadratically.
+
+---
+
+## Discrete Targets: Classification & Generation
 
 
 
