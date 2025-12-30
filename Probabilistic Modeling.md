@@ -54,6 +54,13 @@ Later when we introduce how we actually perform *learning*, we'll optimize on $\
 - $\psi$ is different for every single input. If we just optimized $\psi$, we would just be memorizing the dataset (setting $\mu = u$ for every point).
 - $\theta$ defines the function. We want to learn $f_\theta$ that generates the correct $\psi$ for any input (including new ones). 
 
+Just a side note, recall that in intro class, for our linear regression we introduce $b$ to handle 'noise'. Unfortunately, this was an oversimplification.
+Bias $b$ handles the **Position** of the distribution, so it is part of $\mu$, while noise $\epsilon$, controls the **Spread** of the distribution, the $\sigma$.
+Bias is requried to handle the case where $x = 0$ and $y \neq 0$. It also makes the function *Affine*, allowing 'cursor' to lift off the origin and shift activation functions (ReLU) left or right, which is essential for 'wiggling' the curve to fit complex shapes.
+In modern deep learning, however, with the use of 
+- **LayerNorm**: explicitly re-centering the data to zero and cancels out the shift provided by bias,
+- **RMSNorm**: normalizing scale (variance), but empirically keeping the latent states centered around zero improves stability during training,
+we usually do not use bias in MLP layers. However, in final output layer (*lm_head*), we still usually retain the bias part, learning a shift of logits.
 
 ## **The Stocastic Head $(p(\cdot \mid \psi))$**
 
@@ -340,11 +347,11 @@ $$
 
 Every specific loss (MSE, MAE, CE) is simply the NLL derived from a specific choice of **Observation Model** (Noise Distribution).
 
-## Continous Targets: Regression
+## **Continous Targets: Regression**
 
 When the target is continuous $y\in \mathbb{R}$, we typically model the uncerntainty as the *additive* noise.
 
-### Gaussian Noise $\to$ Mean Squared Error (MSE)
+### **Gaussian Noise $\to$ Mean Squared Error (MSE)**
 
 **Assumption**: The target is drawn from the Normal Distribution centered at the model's prediction $\mu$, with fixed variance $\sigma^2 = 1$.
 
@@ -361,7 +368,7 @@ $$
 - Large errors are penalized quadratically.
 - The model estimates the conditional **mean** $\mathbb{E}[y \mid \mu]$
 
-### Laplace Noise $\to$ Mean Absolute Error (MAE)
+### **Laplace Noise $\to$ Mean Absolute Error (MAE)**
 
 **Assumption**: The target is drawn from a Laplace distribution (sharper peak, heavier tails).
 
@@ -378,7 +385,11 @@ $$
 
 ---
 
-## Discrete Targets: Classification & Generation
+## **Discrete Targets: Classification & Generation**
+
+When the target is discrete, "noise" is the stochasticity of selecting a *category*.
+
+### **Bernoulli $\to$ Binary Cross-Entropy (BCE)**
 
 
 
