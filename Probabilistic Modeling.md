@@ -7,12 +7,12 @@ tags:
 
 
 # **Data**
-
-- The **Real** Distribution: We consider supervised or self-supervised learning settings where we observe samples $x \in \mathcal{X}$ drawn i.i.d. from an **unknown data-generating distribution** $p_{\text{data}}(x)$, where we **never** assume a *parametric* form for $p_{\text{data}}$ itself.
-    - In Supervised/Conditional settings, each sample $x$ is a tuple: $x = (u, y)$.
-        - $u$ (Context/Input): The information we condition on (e.g., Image, Text Prompt, Features).
-        - $y$ (Target/Observable): The variable we want to predict or model (e.g., Label, Next Token, Denoised Pixel).
-- The **Dataset** $(\mathcal{D})$: A finite set of samples observed from the real distribution.
+We consider supervised or self-supervised learning settings where we observe samples $x$ drawn i.i.d. from an **unknown data-generating distribution** $p_{\text{data}}(x)$. 
+We **never** assume a *parametric* form for $p_{\text{data}}$.
+- **The sample** $x$: In conditional settings, $x = (u, y)$.
+    - $u$ (Context/Input): The information we condition on (e.g., Image, Text Prompt, Features).
+    - $y$ (Target/Observable): The variable we want to predict or model (e.g., Label, Next Token, Denoised Pixel).
+- The **Dataset** $D$: A finite set of samples observed from the real distribution.
 $$
 D = \{x_1, \dots, x_N\} = \{(u_1, y_1), \dots, (u_N, y_N)\}
 \sim p_{\text{data}} 
@@ -30,6 +30,10 @@ $$
 
 Our model architecture explicitly separtes **structure** (deterministic) from **uncertainty** (stochastic). It consists of two coupled componenets
 
+We never assume the parametric form of the *true* data distribution $p_{\text{data}}(y \mid u)$. Instead, we assume a *conditional* distribution $p(y \mid \psi)$, the output $y$ conditioned on our fixed parameter $\theta$ and input conditioned information (context) $u$.
+
+This is equivalent to drawing from the distribution that we (as the modeler) assume, using *local* distribution parameters $\psi$ output by our deterministic base model.
+
 ## **Deterministic Body $f_\theta$**
 
 A function that maps input context $u$ to **Local Distribution Parameters** $\psi$.
@@ -46,15 +50,16 @@ $$
 - What is $\psi$? $\psi$ represents the *dynamic* statistics for a *specific* data point.
     - Examples: Gaussian mean/variance $[\mu, \sigma]$, or Logits over vocabulary.
 
+Later when we introduce how we actually perform *learning*, we'll optimize on $\theta$ instead of $\psi$:
+- $\psi$ is different for every single input. If we just optimized $\psi$, we would just be memorizing the dataset (setting $\mu = u$ for every point).
+- $\theta$ defines the function. We want to learn $f_\theta$ that generates the correct $\psi$ for any input (including new ones). 
+
+
 ## **The Stocastic Head $(p(\cdot \mid \psi))$**
 
 A specific probability density form $p(\cdot \mid \psi)$ that defines how the target $y$ is distributed given those parameters ($f_\theta$).
 
-## Workflow
-
-We never assume the parametric form of the *true* data distribution $p_{\text{data}}(y \mid u)$. Instead, we assume a *conditional* distribution $p(y \mid \psi)$, the output $y$ conditioned on our fixed parameter $\theta$ and input conditioned information (context) $u$.
-
-This is equivalent to drawing from the distribution that we (as the modeler) assume, using *local* distribution parameters $\psi$ output by our deterministic base model.
+## **Workflow**
 
 1. **Input**($u$): The context (e.g. *"The cat sits on"*). 
 2. **Network**($f_\theta$): The deterministic calculation.
@@ -64,33 +69,25 @@ This is equivalent to drawing from the distribution that we (as the modeler) ass
     e.g. We assume: "The next word follows a Categorical distribution defined by $\psi$."
 5. **Sampling**: the stochastic step; drawing from that distribution.
 6. **Output**($y$): the *realization*.
+    - *Training*: We **score** the real $y$ against this distribution (Likelihood).
+    - *Inference*: We **sample** a new $\hat y$ from this distribution (Generation).
     e.g. Result: next token *'mat'*, class *'dog'*...
 
-Note that, essentially we have two types of parameters.
-- $\psi$ (Local Parameters): outputs for a single data point (e.g., the mean prediction for Image #1).
-- $\theta$ (Global Parameters): the weights of the network that produce $\psi$ for every data point.
-Later when we introduce how we actually perform *learning*, we'll optimize on $\theta$ instead of $\psi$:
-- $\psi$ is different for every single input. If we just optimized $\psi$, we would just be memorizing the dataset (setting $\mu = u$ for every point).
-- $\theta$ defines the function. We want to learn $f_\theta$ that generates the correct $\psi$ for any input (including new ones). 
+---
 
-### Motivation: Why We Need $\theta$ - The Role of Complexity
-
-We call our determinisitic function *network* since we are usually dealing with *deep* neural networks for LLM and multi-modal understanding/generation. But generally, $\theta$ is just a set of parameters for any function $f$, regardless of its complexity.
-- Linear Regression: $\theta$ is the slope and intercept ($mx + b$)
-- Poplynomial Regression: $\theta$ is the coefiicients ($ax^2 + bx + c$)
-- Decision Trees, $\theta$ is the split threasholds.
+## **Motivation 1: Why We Need $\theta$ - The Role of Complexity**
 
 Why we need $\theta$ at all, if the "Stochastic" part (the probability distribution) is what actually generates the data? Why not just sample directly from a distribution?
 The answer lies in the distinction between **Stationary** and **Dynamic** uncertainty.
 
-We can view our model as two parts:
+We can view our model as a simple head on top of a complex body.
 - **The Head (Observation Model):** The chosen distribution form $p(\cdot \mid \psi)$ (e.g., Gaussian). By itself, this is rigid and stationary.
 - **The Body (The Network ):** The deterministic function approximator $f_\theta$. This is flexible and context-aware.
 
 Without $\theta$, our parameters $\psi$ would be constant. We would effectively be predicting the "average" of the entire universe for *every input*. The neural network solves this by making the distribution **dynamic**. Instead of a single static cloud, the distribution becomes a **cursor** that the network moves continuously across the output manifold.
 By continously shifting the local distribution parameters across the high-dimensional input manifold, the model traces out a complex, non-linear shape.
 
-#### **Case Study: The "Moving" Parameters**
+**Case Study: The "Moving" Parameters**
 
 To visualize this, suppose we want to predict **Temperature ($y$)** given **Time of Day ($x$)**.
 
@@ -130,21 +127,22 @@ The proof intuition for **Lipschitz continuous** functions (functions with bound
 
 While generic approximation theoretically faces the **Curse of Dimensionality**—requiring an exponential number of neurons ($\approx (1/\epsilon)^d$)—neural networks circumvent this in practice. For functions with **decaying Fourier coefficients** (common in structured real-world data like images or language), the required network size scales independently of the input dimension (), explaining why deep learning remains efficient even in high-dimensional spaces.
 
-
 ---
 
-## Likelihood, Sampling Distribution, Noise, Observation Model
+## **Likelihood, Sampling Distribution, Noise, Observation Model**
 
-### Motivation: Why We need Stochastic
+### **Motivation 2: Why We need Stochastic**
 
-The necessity of introducing a stochastic part (the likelihood/noise model) essentially boils down to one fact: **The world is not a mathematical function.**
-A mathematical function  is a **Many-to-One** mapping. It takes an input and produces exactly one fixed output.
+The necessity of introducing a stochastic part (the likelihood/noise model) essentially boils down to one fact: 
+> The world is not a **Many-to-One** mathematical function.
+
+A **Many-to-One** mapping takes an input and produces exactly one fixed output.
 However, most real-world problems are **One-to-Many**.
 - Ambiguity: "The capital of..." is deterministic. "Once upon a time..." implies thousands of valid continuations. A deterministic model would collapse these into a single (likely incorrect) average.
 - Unobserved Variables: We rarely observe the full state of the universe. The "Stochastic Part" captures the variations caused by hidden factors we cannot measure.
 - Generative Diversity: To generate new samples (e.g., different images of dogs), we need a source of randomness to sample from.
 
-### Terminology Equivalence
+### **Terminology Equivalence**
 
 While distinct terms are used across fields, they refer to the exact same mathematcial object: the conditional probability distribution $p(y \mid \psi)$.
 
@@ -156,6 +154,7 @@ While distinct terms are used across fields, they refer to the exact same mathem
 | **Noise Model**           | Physics      | $\epsilon \sim p_\epsilon(\cdot)$                        | The *Fuzz*. The source of stochasticity, explaining why $y \neq f_\theta(x)$, defining how deviations are penalized.                      |
 
 Note that we use **Likelihood** for training, and **Sampling** for inference.
+
 In standard Supervised Learning (MLE), we do not sample during training, but in advanced Generative settings (RLHF, VAEs), we do sample during training, and we have special tricks to "learn" through that stochasticity.
 - Inference (**Generation**):$\theta \to \psi \xrightarrow{\text{Sample}} \hat{y}$; We create a new, fake reality.
 - Training (**Scoring**):$\theta \to \psi \xrightarrow{\text{Score}} y_{\text{real}}$; We measure the probability of the existing reality.
@@ -170,7 +169,7 @@ e.g. Top-k / Top-p / Temperature:
     - We then calculate a gradient to update $\theta$ so that the model becomes more likely to generate that specific "good" sample again.
     - Because sampling is discrete and breaks back-propagation, we use the **Policy Gradient Theorem (REINFORCE)** to bypass the missing gradient.
 
-### Clarification: Additive Noise vs. Stochastic Sampling
+### **Clarification: Additive Noise vs. Stochastic Sampling**
 
 It is crucial to note that "Noise" is often used as a metaphor for stochasticity, but its mathematical implementation differs by domain.
 1. Continuous Models (Regression, Diffusion) Here, the noise is explicit and additive. We conceptualize the target as the deterministic prediction plus a random error term.
@@ -186,7 +185,7 @@ $$
     - The "Noise": There is no external $\varepsilon$ variable added. The stochasticity comes from the act of drawing from the distribution itself (rolling the weighted die).
     - Intuition: Aleatoric uncertainty. The input implies multiple valid outputs; the "noise" is the randomness of selection.
 
-### Conditional Independence Theorem
+### **Conditional Independence Theorem**
 The global model parameters $\theta$ do not influence the data $y$ directly. They only influence the data through the local distribution parameters $\psi$. We postulate the following causal chain:
 
 $$
