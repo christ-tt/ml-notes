@@ -10,8 +10,8 @@ tags:
 
 - The **Real** Distribution: We consider supervised or self-supervised learning settings where we observe samples $x \in \mathcal{X}$ drawn i.i.d. from an **unknown data-generating distribution** $p_{\text{data}}(x)$, where we **never** assume a *parametric* form for $p_{\text{data}}$ itself.
     - In Supervised/Conditional settings, each sample $x$ is a tuple: $x = (u, y)$.
-    - $u$ (Context/Input): The information we condition on (e.g., Image, Text Prompt, Features).
-    - $y$ (Target/Observable): The variable we want to predict or model (e.g., Label, Next Token, Denoised Pixel).
+        - $u$ (Context/Input): The information we condition on (e.g., Image, Text Prompt, Features).
+        - $y$ (Target/Observable): The variable we want to predict or model (e.g., Label, Next Token, Denoised Pixel).
 - The **Dataset** $(\mathcal{D})$: A finite set of samples observed from the real distribution.
 $$
 D = \{x_1, \dots, x_N\} = \{(u_1, y_1), \dots, (u_N, y_N)\}
@@ -20,24 +20,35 @@ $$
 
 ---
 
-# **Model**
+# **Model: The Determinisitc-Stochastic Couple**
 
-We define a **Model** as a **Parametric Family of Probability Distributions**. Let 
+We define a **Model** as a **Parametric Family of Probability Distributions**, indexed by parameters $\theta$ in a parameter space $\Theta$. 
 
 $$
 \mathcal{P} = \{p_\theta(y \mid u): \theta \in \Theta\}
 $$
 
-be a family of probability distributions indexed by parameters $\theta$ in a parameter space $\Theta$.
+Our model architecture explicitly separtes **structure** (deterministic) from **uncertainty** (stochastic). It consists of two coupled componenets
 
-Our model consists of two coupled components:
-- The Parameter Mapping (**Deterministic** network): A function $f_\theta$ that maps input context $u$ to distribution **parameters** $\psi$.
+## **Deterministic Body $f_\theta$**
+
+A function that maps input context $u$ to **Local Distribution Parameters** $\psi$.
 
 $$
 \psi = f_\theta(u)
 $$
 
-- The Sampling Distribution (**Stochastic**): A specific probability density form $p(\cdot \mid \psi)$ that defines how the target $y$ is distributed given those parameters ($f_\theta$).
+- What is $\theta$? $\theta$ represents the *learnable* parameters of the function $f$.
+    - Linear Regression: $\theta = \{w, b\}$, the slope and intercept ($mx + b$)
+    - Poplynomial Regression: $\theta = \{a, b, c\}$, the coefiicients ($ax^2 + bx + c$)
+    - Decision Trees, $\theta$ is the split threasholds.
+    - Deep Learning: $\theta = \{W_1, b_1, \dots, W_L\} billions of neural network weights.
+- What is $\psi$? $\psi$ represents the *dynamic* statistics for a *specific* data point.
+    - Examples: Gaussian mean/variance $[\mu, \sigma]$, or Logits over vocabulary.
+
+## **The Stocastic Head $(p(\cdot \mid \psi))$**
+
+A specific probability density form $p(\cdot \mid \psi)$ that defines how the target $y$ is distributed given those parameters ($f_\theta$).
 
 ## Workflow
 
