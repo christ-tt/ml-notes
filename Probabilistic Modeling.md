@@ -399,6 +399,72 @@ p(y \mid \psi) &=  \psi^y(1-\psi)^{1-y} \\
 \end{align*}
 $$
 
+- Standard **Binary Cross-Entropy** used in *logistic regression* and discriminators.
+
+### **Categorical $\to$ Cross-Entropy (CE)**
+
+**Assumption**: Target $y \in \{1, \dots, K\}$ (e.g., Next Token). Model outputs a probability vector $\psi = \mathbf{p}$ (via Softmax). With *One-Hot* vector notation for $y$, we have:
+$$
+\begin{align*}
+p(y = k \mid \mathbf{p}) &=  p_k \\
+- \log p(y \mid \mathbf{p}) &= -\sum_{k=1}^K \mathbb{I}(y=k)\log p_k
+\end{align*}
+$$
+This minimizes the KL divergence between the discrete Dirac distribution of the label and the model's Softmax distribution.
+
+### **High-Dimensional Alignment: Contrastive Loss** 
+
+In models like CLIP or SimCLR, we want to align representations $u$ (image) and $v$ (text).
+**Assumption**: Batch-wise Categorical Distribution (InfoNCE).We treat a batch of $N$ samples as a multiple-choice classification problem. 
+Given an image $u_i$, the "correct class" is the paired text $v_i$, and the other $N-1$ texts are "distractors."
+$$
+\begin{align*}
+p(v_i \text{ is match} \mid u_i) &= \frac{\exp(u_i \cdot v_i / \tau)}{\sum_{j=1}^N \exp(u_i \cdot v_j / \tau)} \\
+\mathcal{L}_{\text{Contrastive}} &= -\log \left( \frac{e^{\text{sim}(u_i, v_i)}}{\sum_j e^{\text{sim}(u_i, v_j)}} \right)
+\end{align*}
+$$
+
+Contrastive Loss is simply Cross-Entropy applied to a "classification" task created dynamically within the batch.
+
+## **Unification via Empirical Risk**
+
+We can now unify all these seemingly different formulas under the Empirical Risk Minimization (ERM) framework derived from MLE.The Objective:
+$$
+\theta^* = \arg \min_\theta \frac{1}{N} \sum_{i=1}^N \underbrace{\mathcal{L}(y_i, f_\theta(u_i))}_{\text{Loss Term}} + \underbrace{\lambda \mathcal{R}(\theta)}_{\text{Regularization}}
+$$
+1. The Loss Term (Data Fit)
+    As shown above, the "Loss Term" is exactly the negative log-likelihood of our noise assumption:
+    $$
+    \mathcal{L}(y, \psi) \equiv -\log p_{\text{Noise}}(y \mid \psi)
+    $$
+    If we assume Gaussian $\to$ we get MSE. If we assume Categorical $\to$ we get Cross-Entropy.
+2. The Regularization Term (Prior)
+    This connects back to MAP (Maximum A Posteriori). The regularization term corresponds to the negative log-prior of the parameters:
+    $$
+    \mathcal{R}(\theta) \equiv -\log p_{\text{Prior}}(\theta)
+    $$
+    Example: L2 Regularization (Weight Decay)
+    - **Assumption**: Weights follow a Gaussian Prior $\theta \sim \mathcal{N}(0, \tau^2 I)$.
+    - **Derivation**:
+    $$
+    -\log p(\theta) \propto \|\theta\|^2
+    $$
+    - **Result**: Adding weight_decay to the optimizer is mathematically equivalent to placing a Gaussian prior on your network weights.
+
+**Summary**: Distribution $\to$ LossTask
+
+| Task                | Target $y$               | Assumed Likelihood $p(y\mid \psi)$   | Loss                      |
+| ------------------- | ------------------------ | ------------------------------------ | ------------------------- |
+| **Regression**      | Real Scalar $\mathbb{R}$ | Gaussian $\mathcal{N}(\mu, I)$       | MSE (L2)                  |
+| **Robust Reg.**     | Real Scalar $\mathbb{R}$ | **Laplace** $\text{Laplace}(\mu, b)$ | **MAE** (L1)              |
+| **Binary Class.**   | $\{0, 1\}$               | **Bernoulli**                        | **Binary Cross-Entropy**  |
+| **LLM / Class.**    | $\{1, \dots, K\}$        | **Categorical**                      | **Cross-Entropy**         |
+| **Metric Learning** | Vectors                  | **Categorical** (over batch)         | **Contrastive (InfoNCE)** |
+
+
+
+
+
 
 
 
