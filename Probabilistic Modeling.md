@@ -347,17 +347,89 @@ $$
 
 Every specific loss (MSE, MAE, CE) is simply the NLL derived from a specific choice of **Observation Model** (Noise Distribution).
 
-## **Continuous Targets: Regression**
+## **Cross-Entropy: Discrete, Categorical Targets**
 
-When the target is continuous $y\in \mathbb{R}$, we typically model the uncerntainty as the *additive* noise.
+**Model outputs** a probability vector, *logits*, via softmax, given context $u$,
+$$
+\psi = s_\theta(u) \in \mathbb R^K, \qquad s_\theta(u) = \left(s_{\theta,1}(u), \dots, s_{\theta,K}(u)\right),
+$$
+mapped to probabilities
+$$
+\begin{align*}
+\pi_\theta(u) &= \text{softmax}(s_\theta(u)) \\
+\pi_{\theta, k}(u) &= \frac{\exp(s_{\theta,k}(u)}{\sum_{j=1}^K \exp(s_{\theta, j}(u)}, k = 1, \dots, K
+\end{align*}
+$$
+
+**Assuming categorical likelihood**, target $y \in \{1, \dots, K\}$ (e.g., Next Token), $y \mid u \sim\text{Categorical}(\pi_\theta(u))$
+$$
+\begin{align*}
+p_\theta(y=k\mid u)&=\pi_{\theta,k}(u) \\
+p_\theta(y \mid u) &= \prod_{k=1}^K \pi_{\theta, k}(u)^{\mathbf 1[y=k]} \\
+-\log p_\theta(y\mid u) &= -\log \pi_{\theta,y}(u) \\
+&= -s_{\theta,y}(u) + \log\!\left(\sum_{j=1}^K e^{s_{\theta,j}(u)}\right)
+\end{align*}
+$$
+
+For a target **one-hot** distribution $q(\cdot)$ (ground truth), cross-entropy is:
+$$
+H(q,\pi_\theta) \triangleq -\sum_{k=1}^K q_k \log \pi_{\theta,k}(u).
+$$
+If $q$ is one-hot at class $y$, this reduces exactly to categorical NLL:
+$$
+\ell_{\text{CE}}(u,y;\theta)= -\log \pi_{\theta,y}(u) = -\log p_\theta(y\mid u).
+$$
+So cross-entropy is exactly NLL for a categorical likelihood.
+
+LLM special case (sequence): for tokens $x_{1:T}$,
+$$
+\mathcal L_{\text{LLM}}(\theta)= -\sum_{t=1}^T \log p_\theta(x_t\mid x_{<t}),
+$$
+i.e., a sum of categorical NLL terms.
+
+### **Minimizing Cross-Entropy is Equivalent to Minimizing KL**
+Minimizing CE minimizies KL from the lablel's Dirac distribution to the model distribution. Recall,
+$$
+\mathrm{KL}(q\|p) = H(q,p) - H(q) \qquad H(q) = -\sum_k q_k \log q_k
+$$
+For a **Dirac / one-hot** distribution, the entropy is zero, $q^{(y)}=0$, so
+$$
+\mathrm{KL}\!\left(q^{(y)} \,\|\, \pi_\theta(u)\right)
+= H\!\left(q^{(y)},\pi_\theta(u)\right)
+= -\log \pi_{\theta,y}(u)
+= -\log p_\theta(y\mid u).
+$$
+
+### **Bernoulli $\to$ Binary Cross-Entropy (BCE)**
+
+**Assumption**: Target $y \in \{0, 1\}$; model outputs probability $\psi = p$
+$$
+\begin{align*}
+p(y \mid \psi) &=  \psi^y(1-\psi)^{1-y} \\
+- \log p(y \mid \psi) &= -\left(y\log \psi + (1 - y) \log(1 - \psi)\right)
+\end{align*}
+$$
+
+- Standard **Binary Cross-Entropy** used in *logistic regression* and discriminators.
+- This is equivalent to Categorical CE case with 2 classes.
+
+## **MSE & MAE: Continuous Targets (Gaussian / Laplace)**
 
 ### **Gaussian Noise $\to$ Mean Squared Error (MSE)**
 
-**Assumption**: The target is drawn from the Normal Distribution centered at the model's prediction $\mu$, with fixed variance $\sigma^2 = 1$.
+**Assumed Likelihood**: For continuous targets $y \in \mathbb{R}^d $, we use *additive* isotropic Gaussian noise:
+$$
+y = \mu_\theta(u) + \epsilon, \qquad \epsilon \sim \mathcal{N}(0, \sigma^2I).
+$$
+Equivalently, 
+$$
+y \mid \mu \sim \mathcal{N}(\mu, \sigma^2I), \qquad p_\theta(y \mid u) = \mathcal{N}(y \mid \mu_\theta(u), \sigma^2I).
+$$
+
+**NLL**:
 
 $$
 \begin{align}
-y \mid \mu &\sim \mathcal{N}(\mu, 1)\\
 p(y \mid \mu) &= \frac{1}{\sqrt{2\pi}}\exp \left(-\frac{(y-\mu)^2}{2}\right) \\
 - \log p(y \mid \mu) &= -\log(\frac{1}{\sqrt{2\pi}}) - \frac{-(y - \mu)^2}{2} \\
 &= \frac{1}{2}\|y - \mu\|^2 + \text{constant}
@@ -389,68 +461,6 @@ $$
 
 When the target is discrete, "noise" is the stochasticity of selecting a *category*.
 
-### **Bernoulli $\to$ Binary Cross-Entropy (BCE)**
-
-**Assumption**: Target $y \in \{0, 1\}$; model outputs probability $\psi = p$
-$$
-\begin{align*}
-p(y \mid \psi) &=  \psi^y(1-\psi)^{1-y} \\
-- \log p(y \mid \psi) &= -\left(y\log \psi + (1 - y) \log(1 - \psi)\right)
-\end{align*}
-$$
-
-- Standard **Binary Cross-Entropy** used in *logistic regression* and discriminators.
-
-### **Categorical $\to$ Cross-Entropy (CE)**
-
-**Model outputs** a probability vector, *logits*, via softmax, 
-$$
-\psi = s_\theta(u) \in \mathbb R^K, s_\theta(u) = \left(s_{\theta,1}(u), \dots, s_{\theta,K}(u)\right),
-$$
-mapped to probabilities
-$$
-\begin{align*}
-\pi_\theta(u) &= \text{softmax}(s_\theta(u)) \\
-\pi_{\theta, k}(u) &= \frac{\exp(s_{\theta,k}(u)}{\sum_{j=1}^K \exp(s_{\theta, j}(u)}, k = 1, \dots, K
-\end{align*}
-$$
-
-**Assuming** target $y \in \{1, \dots, K\}$ (e.g., Next Token), $y\sim\text{Categorical}(\pi_\theta(u))$
-$$
-\begin{align*}
-p_\theta(y=k\mid u)&=\pi_{\theta,k}(u) \\
-p_\theta(y \mid u) &= \prod_{k=1}^K \pi_{\theta, k}(u)^{\mathbb I[y=k]} \\
--\log p_\theta(y\mid u) &= -\log \pi_{\theta,y}(u) \\
-&= -s_{\theta,y}(u) + \log\!\left(\sum_{j=1}^K e^{s_{\theta,j}(u)}\right)
-\end{align*}
-$$
-
-Loss = NLL = cross-entropy
-
-For a one-hot label vector q(\cdot) (ground truth), cross-entropy is:
-H(q,\pi_\theta)= -\sum_{k=1}^K q_k \log \pi_{\theta,k}(u).
-If q is one-hot at class y, this reduces to:
-\boxed{
-\ell_{\text{CE}}(u,y;\theta)= -\log \pi_{\theta,y}(u) = -\log p_\theta(y\mid u).
-}
-So cross-entropy is exactly NLL for a categorical likelihood.
-
-LLM special case (sequence): for tokens x_{1:T},
-\mathcal L_{\text{LLM}}(\theta)= -\sum_{t=1}^T \log p_\theta(x_t\mid x_{<t}),
-i.e., a sum of categorical NLL terms.
-
-
-
-
-
-With *One-Hot* vector notation for $y$, we have:
-$$
-\begin{align*}
-p(y = k \mid \mathbf{p}) &=  p_k \\
-- \log p(y \mid \mathbf{p}) &= -\sum_{k=1}^K \mathbb{I}(y=k)\log p_k
-\end{align*}
-$$
-This minimizes the KL divergence between the discrete Dirac distribution of the label and the model's Softmax distribution.
 
 ### **High-Dimensional Alignment: Contrastive Loss** 
 
