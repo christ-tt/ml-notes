@@ -427,13 +427,15 @@ y \mid \mu \sim \mathcal{N}(\mu, \sigma^2I), \qquad p_\theta(y \mid u) = \mathca
 $$
 
 **NLL**:
-
 $$
 \begin{align}
-p(y \mid \mu) &= \frac{1}{\sqrt{2\pi}}\exp \left(-\frac{(y-\mu)^2}{2}\right) \\
-- \log p(y \mid \mu) &= -\log(\frac{1}{\sqrt{2\pi}}) - \frac{-(y - \mu)^2}{2} \\
-&= \frac{1}{2}\|y - \mu\|^2 + \text{constant}
+p(y \mid \mu, \sigma^2I) &= \frac{1}{(2\pi\sigma^2)^{d/2}}\exp \left(-\frac{\|y-\mu\|^2}{2\sigma^2}\right) \\
+- \log p(y \mid \mu, \sigma^2) &= \frac{d}{2}\log(2\pi \sigma^2) + \frac{1}{2\sigma^2}\|y-\mu\|^2
 \end{align}
+$$
+We usually assume $\sigma$ is fixed (not learned), so the first term becomes the constant w.r.t. $\mu$ (and hence w.r.t. $\theta$. Also, the scaling $\frac{1}{2\sigma^2}$ is also constant, so minimizing NLL is equivalent to minimizing *squred error*.
+$$
+\ell_{\mathrm{NLL}}(u,y;\theta) = -\log p_\theta(y\mid u) \;\propto\; \|y-\mu_\theta(u)\|^2 = \ell_{\mathrm{MSE}}(u,y;\theta).
 $$
 
 - Minimizing NLL is equivalent to minimizing **L2** Distance (MSE);
@@ -456,25 +458,6 @@ $$
 - Robust to outliers because the penalty grows linearly, not quadratically.
 
 ---
-
-## **Discrete Targets: Classification & Generation**
-
-When the target is discrete, "noise" is the stochasticity of selecting a *category*.
-
-
-### **High-Dimensional Alignment: Contrastive Loss** 
-
-In models like CLIP or SimCLR, we want to align representations $u$ (image) and $v$ (text).
-**Assumption**: Batch-wise Categorical Distribution (InfoNCE).We treat a batch of $N$ samples as a multiple-choice classification problem. 
-Given an image $u_i$, the "correct class" is the paired text $v_i$, and the other $N-1$ texts are "distractors."
-$$
-\begin{align*}
-p(v_i \text{ is match} \mid u_i) &= \frac{\exp(u_i \cdot v_i / \tau)}{\sum_{j=1}^N \exp(u_i \cdot v_j / \tau)} \\
-\mathcal{L}_{\text{Contrastive}} &= -\log \left( \frac{e^{\text{sim}(u_i, v_i)}}{\sum_j e^{\text{sim}(u_i, v_j)}} \right)
-\end{align*}
-$$
-
-Contrastive Loss is simply Cross-Entropy applied to a "classification" task created dynamically within the batch.
 
 ## **Unification via Empirical Risk**
 
@@ -511,10 +494,202 @@ $$
 | **LLM / Class.**    | $\{1, \dots, K\}$        | **Categorical**                      | **Cross-Entropy**         |
 | **Metric Learning** | Vectors                  | **Categorical** (over batch)         | **Contrastive (InfoNCE)** |
 
+---
+
+# **5. Learning Paradigms & Case Studies**
+
+Having established that a model is simply a parametric tool to approximate a probability distribution, we can now classify distinct learning paradigms based on **what** distribution they model and **how** they access data.
+
+## **5.1. The Taxonomy**
+
+### **A. Supervised vs. Unsupervised (The Data View)**
+
+This distinction is based on the **Dataset **.
+
+1. **Supervised Learning:**
+* **Data:** Pairs .
+* **Goal:** Learn the conditional distribution .
+* *Analogy:* "Teacher and Student." The teacher provides the question () and the correct answer ().
+
+
+2. **Unsupervised Learning:**
+* **Data:** Only raw samples . (Or effectively ).
+* **Goal:** Learn the structure of the data itself, often modeled as .
+* *Analogy:* "Explorer." The model observes the world and tries to find patterns without explicit guidance.
+* *Note:* **Self-Supervised Learning** (like training LLMs) is technically Unsupervised (we only have text), but we mathematically frame it as Supervised by creating artificial  pairs from the data itself (e.g.,  "The",  "cat").
 
 
 
+### **B. Discriminative vs. Generative (The Modeling View)**
 
+This distinction is based on the **Probability Distribution** being learned.
+
+1. **Discriminative Models:**
+* **Model:** 
+* **Focus:** The **Decision Boundary**. Given input , which output  is most likely?
+* *Behavior:* Can distinguish "Dog" from "Cat," but cannot draw a dog.
+* *Examples:* Logistic Regression, Image Classifiers.
+
+
+2. **Generative Models:**
+* **Model:**  (Joint) or  (Marginal).
+* **Focus:** The **Data Geometry**. How is the data actually created?
+* *Behavior:* Can generate new samples . To do this, they must understand the internal structure of the data.
+* *Examples:* LLMs, Diffusion Models, VAEs.
+
+
+
+---
+
+## **5.2. Case Studies: The Unified Workflow**
+
+We will now dissect distinct architectures using our unified 4-step workflow:
+
+1. **Input ():** The context.
+2. **Body ():** The deterministic universal approximator (Neural Network).
+3. **Head ():** The local distribution parameters output by the body.
+4. **Sampling ():** The assumed stochastic process.
+
+---
+
+### **Case I: Classic Regression (Supervised / Discriminative)**
+
+* **Task:** Predict House Price () given Features ().
+* **Assumption:** Errors are normally distributed.
+
+1. **Input:** Vector of features  (footage, location...).
+2. **Body:** MLP or Linear Layer.
+
+
+
+*(Note: We often assume fixed variance , so the net only outputs the mean).*
+3. **Assumed Dist:** Gaussian.
+
+
+4. **Loss (Training):** Negative Log-Likelihood  **MSE**.
+
+
+5. **Inference:**
+
+
+
+---
+
+### **Case II: Image Classification (Supervised / Discriminative)**
+
+* **Task:** Predict Class Label () given Image ().
+* **Assumption:** One mutually exclusive category.
+
+1. **Input:** Image pixels  (e.g., ).
+2. **Body:** ResNet / ViT (Vision Transformer).
+* Outputs a vector of raw scores (logits) .
+* .
+
+
+3. **Assumed Dist:** Categorical.
+
+
+4. **Loss (Training):** NLL  **Cross-Entropy**.
+
+
+5. **Inference:**
+
+
+
+---
+
+### **Case III: Large Language Models (Self-Supervised / Generative)**
+
+* **Task:** Predict Next Token () given Context ().
+* **Assumption:** The next token is a categorical choice from a vocabulary .
+
+1. **Input:** Sequence of token IDs .
+2. **Body:** Transformer Decoder (e.g., Llama, GPT).
+* Maps sequence to a hidden state .
+* Projects  to vocabulary size (e.g., 32k logits).
+* .
+
+
+3. **Assumed Dist:** Categorical (over Vocabulary).
+
+
+4. **Loss (Training):** NLL  **Cross-Entropy** (on the correct next token).
+5. **Inference (Decoding):**
+* Here, we **do** sample.
+* **Strategies:** Greedy (), Top-k (sample from top ), Top-p (Nucleus sampling).
+* *Goal:* Balance correctness (mode seeking) with diversity (tail sampling).
+
+
+
+---
+
+### **Case IV: Image Generation (Diffusion Models)**
+
+* **Task:** Generate Image () given Text () and Noise.
+* **Assumption:** The reverse process of adding noise is a Gaussian denoising step.
+
+1. **Input:**
+* Noisy Image .
+* Time step .
+* Text Prompt  (Conditioning).
+
+
+2. **Body:** U-Net or DiT (Diffusion Transformer).
+* The network predicts the **noise** component .
+* Mathematically, predicting noise  is equivalent to predicting the mean  of the denoised image distribution.
+* .
+
+
+3. **Assumed Dist:** Gaussian.
+
+
+4. **Loss (Training):** NLL  **MSE** (between predicted noise and real noise).
+
+
+5. **Inference:**
+* Start with pure noise .
+* Iteratively sample  using the predicted .
+
+
+
+---
+
+### **Case V: Multi-Modal Understanding (CLIP / Contrastive)**
+
+* **Task:** Align Images () and Text () in a shared space.
+* **Assumption:** Correct pairs  should have high similarity; mismatched pairs  should have low similarity.
+
+1. **Input:** Batch of  image-text pairs .
+2. **Body:** Two Encoders.
+* .
+* .
+* .
+
+
+3. **Assumed Dist:** Categorical (Batch-wise).
+* For the -th image, which of the  texts is the correct one?
+* .
+
+
+4. **Loss (Training):** **InfoNCE** (Symmetric Cross-Entropy over the batch).
+5. **Inference (Zero-Shot Classification):**
+* Embed input image.
+* Embed "classes" as text (e.g., "A photo of a dog", "A photo of a cat").
+* Pick the text embedding with highest cosine similarity.
+
+
+
+---
+
+## **Summary Table: The Grand Unification**
+
+| Model | Input  | Body  | Head Parameter  | Assumed Dist. | Loss (NLL) |
+| --- | --- | --- | --- | --- | --- |
+| **Regression** | Features | MLP | Mean  | **Gaussian** | MSE |
+| **Classification** | Image | ResNet | Logits | **Categorical** | Cross-Entropy |
+| **LLM** | Tokens | Transformer | Logits | **Categorical** | Cross-Entropy |
+| **Diffusion** | Noisy Img | U-Net | Mean  (via noise) | **Gaussian** | MSE |
+| **CLIP** | Img/Txt | Dual Enc. | Sim. Matrix | **Categorical** | InfoNCE |
 
 
 
@@ -535,16 +710,7 @@ $$
 
 # LATER
 
-### When MLE reduces to Mean Squared Error (MSE)
-Assume the model: $$P(x \mid \theta) = \mathcal{N}(x \mid \mu_\theta, \sigma^2 I) $$
-The negative log-likelihood for a single sample is, let $c$ be constant, $$- \log P(x\mid \theta) = c \frac{1}{2\sigma^2}\|x-\mu_\theta\|^2$$
-Thus, $$\arg\max_\theta \log P(D \mid \theta) \;\;\Longleftrightarrow\;\; \arg\min_\theta \sum_{k=1}^N \|x_k - \mu_\theta\|^2$$
-Minimizing mean squared error is equivalent to MLE under isotropic Gaussian noise assumption, which is also the reason why MSE appears ubiquitously in regression, autoencoders, and reconstruction losses.
 
-
-
-## Mapping Function
-> Mapping *'What we know'* to *The Parameters of the Distribution*.
 
 ### Input and Output
 
@@ -677,31 +843,6 @@ This is not "generating" data, but "aligning" distributions.
 | **CLIP (Matching)** | Image + Text | Embedding Vectors | **Categorical** (over batch) | Contrastive Loss |
 
 
-
-
-> **A loss function is simply a negative log-likelihood under an assumed noise model.**
-
-| **Noise model** p(x \mid \hat x) | **Interpretation**  | **Resulting loss**    |
-| -------------------------------- | ------------------- | --------------------- |
-| \mathcal N(\hat x, \sigma^2 I)   | Gaussian noise      | Mean Squared Error    |
-| Laplace(\hat x, b)               | Heavy-tailed noise  | L1 loss               |
-| Bernoulli(\hat x)                | Binary outcomes     | Binary cross-entropy  |
-| Categorical(\hat x)              | Multiclass outcomes | Softmax cross-entropy |
-
-- MSE Loss - Gaussian Noise, the *function* is the conditional *mean* $$\begin{align*} \mathcal L(y, \hat y) &= \|y - \hat y\|^2 \\ f^*(\mu) &= \mathbb E[y\mid \mu] \end{align*}$$
-- MAE Loss - Laplace Noise, the *function* is the conditional *median* $$ \begin{align*} \mathcal L(y, \hat y) &= |y - \hat y| \\ f^*(\mu) &= \text{median}(y\mid \mu) \end{align*}$$
-- Cross-Entropy Loss, the network approximates the *entire conditional distribution* $$ \begin{align*} \mathcal L(y, \hat y) &= -\log \hat p(y) \\ f^*(\mu) &= p_{\text{data}}(y \mid \mu) \end{align*}$$
-
-i.e. our model approximates a target mapping that is implicitly defined by the data distribution and the learning objective.
-
-
-By maximizing likelihood, we are essentially finding the parameters that make the observed noise most plausible.
-
-
-
-
-
-
   
 
 
@@ -710,49 +851,6 @@ By maximizing likelihood, we are essentially finding the parameters that make th
 
 ---
 
-
-#  Learning - Types (Supervised/Un-), MLE, MAP
-We classify modern architectures based on their input/output structure and implied noise assumptions.
-
-### **3.1. Traditional Supervised Learning**
-
-* **Goal:** Learn the conditional boundary .
-* **Data:** Explicit pairs  provided by humans.
-
-| Task | Input | Output () | Assumed Noise | Loss |
-| --- | --- | --- | --- | --- |
-| **Regression** | Features | Mean Value  | Gaussian | MSE |
-| **Classification** | Image/Text | Logits | Categorical | Cross-Entropy |
-
-### **3.2. Self-Supervised Generative Learning (LLMs & Vision)**
-
-* **Goal:** Learn the joint distribution  (often factorized as sequence ).
-* **Data:** Unlabeled . The target is derived from the input itself (masking/shifting).
-
-#### **Case Study A: Large Language Models (LLM)**
-
-* **Input:** Context tokens .
-* **Output ():** Logits vector (Vocabulary Size ).
-* **Noise Assumption:** Categorical. The next word is sampled probabilistically.
-* **Mechanism:**  approximates the conditional distribution of language.
-
-#### **Case Study B: Diffusion Models (Image Gen)**
-
-* **Input:** Noisy Image  + Time  + Prompt.
-* **Output ():** The predicted Noise .
-* **Noise Assumption:** Gaussian. We assume the corruption process adds Normal noise.
-* **Mechanism:** Minimizing  (MSE) allows us to reverse the noise process.
-
-### **3.3. Multi-Modal Learning (CLIP / VLM)**
-
-* **Goal:** Align distributions of different modalities.
-
-| Model | Input | Output () | Noise Assumption | Loss |
-| --- | --- | --- | --- | --- |
-| **VLM (e.g., GPT-4V)** | Image + Text | Next Token Logits | Categorical | Cross-Entropy |
-| **CLIP (Alignment)** | Image + Text | Embeddings  | Categorical (Batch) | Contrastive (InfoNCE) |
-
----
 
 ## **4. Conceptual Distinctions**
 
