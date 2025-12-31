@@ -391,6 +391,14 @@ When the target is discrete, "noise" is the stochasticity of selecting a *catego
 
 ### **Bernoulli $\to$ Binary Cross-Entropy (BCE)**
 
+**Assumption**: Target $y \in \{0, 1\}$; model outputs probability $\psi = p$
+$$
+\begin{align*}
+p(y \mid \psi) &=  \psi^y(1-\psi)^{1-y} \\
+- \log p(y \mid \psi) &= -\left(y\log \psi + (1 - y) \log(1 - \psi)\right)
+\end{align*}
+$$
+
 
 
 
