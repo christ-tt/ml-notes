@@ -339,7 +339,7 @@ In practice, the choice of the prior (e.g. Gaussian, Laplace) leads directly to 
 In deep learning engineering, we often treat *Loss functions* as different *measuring* sticks, e.g. 
     - *Mean Squared Error* measures distance.
     - *Cross Entropy* measures surprise.
-From the probabilistic persepctive, however, there's only **ONE** loss function: *Negative Log Likelihood* (NLL).
+From the probabilistic perspective, however, there's only **ONE** loss function: *Negative Log Likelihood* (NLL).
 
 $$
 \mathcal{L}(\theta) = - \log p(y \mid \psi)
@@ -347,7 +347,7 @@ $$
 
 Every specific loss (MSE, MAE, CE) is simply the NLL derived from a specific choice of **Observation Model** (Noise Distribution).
 
-## **Continous Targets: Regression**
+## **Continuous Targets: Regression**
 
 When the target is continuous $y\in \mathbb{R}$, we typically model the uncerntainty as the *additive* noise.
 
@@ -403,7 +403,47 @@ $$
 
 ### **Categorical $\to$ Cross-Entropy (CE)**
 
-**Assumption**: Target $y \in \{1, \dots, K\}$ (e.g., Next Token). Model outputs a probability vector $\psi = \mathbf{p}$ (via Softmax). With *One-Hot* vector notation for $y$, we have:
+**Model outputs** a probability vector, *logits*, via softmax, 
+$$
+\psi = s_\theta(u) \in \mathbb R^K, s_\theta(u) = \left(s_{\theta,1}(u), \dots, s_{\theta,K}(u)\right),
+$$
+mapped to probabilities
+$$
+\begin{align*}
+\pi_\theta(u) &= \text{softmax}(s_\theta(u)) \\
+\pi_{\theta, k}(u) &= \frac{\exp(s_{\theta,k}(u)}{\sum_{j=1}^K \exp(s_{\theta, j}(u)}, k = 1, \dots, K
+\end{align*}
+$$
+
+**Assuming** target $y \in \{1, \dots, K\}$ (e.g., Next Token), $y\sim\text{Categorical}(\pi_\theta(u))$
+$$
+\begin{align*}
+p_\theta(y=k\mid u)&=\pi_{\theta,k}(u) \\
+p_\theta(y \mid u) &= \prod_{k=1}^K \pi_{\theta, k}(u)^{\mathbb I[y=k]} \\
+-\log p_\theta(y\mid u) &= -\log \pi_{\theta,y}(u) \\
+&= -s_{\theta,y}(u) + \log\!\left(\sum_{j=1}^K e^{s_{\theta,j}(u)}\right)
+\end{align*}
+$$
+
+Loss = NLL = cross-entropy
+
+For a one-hot label vector q(\cdot) (ground truth), cross-entropy is:
+H(q,\pi_\theta)= -\sum_{k=1}^K q_k \log \pi_{\theta,k}(u).
+If q is one-hot at class y, this reduces to:
+\boxed{
+\ell_{\text{CE}}(u,y;\theta)= -\log \pi_{\theta,y}(u) = -\log p_\theta(y\mid u).
+}
+So cross-entropy is exactly NLL for a categorical likelihood.
+
+LLM special case (sequence): for tokens x_{1:T},
+\mathcal L_{\text{LLM}}(\theta)= -\sum_{t=1}^T \log p_\theta(x_t\mid x_{<t}),
+i.e., a sum of categorical NLL terms.
+
+
+
+
+
+With *One-Hot* vector notation for $y$, we have:
 $$
 \begin{align*}
 p(y = k \mid \mathbf{p}) &=  p_k \\
