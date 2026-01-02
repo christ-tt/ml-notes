@@ -543,151 +543,159 @@ This distinction is based on the **Probability Distribution** being learned.
 
 We will now dissect distinct architectures using our unified 4-step workflow:
 
-1. **Input ():** The context.
-2. **Body ():** The deterministic universal approximator (Neural Network).
-3. **Head ():** The local distribution parameters output by the body.
-4. **Sampling ():** The assumed stochastic process.
+1. **Input ($u$):** The context.
+2. **Body ($f_\theta$):** The deterministic universal approximator (Neural Network).
+3. **Head ($\psi$):** The local distribution parameters output by the body.
+4. **Sampling ($y$):** The assumed stochastic process.
 
 ---
 
 ### **Case I: Classic Regression (Supervised / Discriminative)**
 
-* **Task:** Predict House Price () given Features ().
-* **Assumption:** Errors are normally distributed.
+* **Task:** Predict House Price ($y\in \mathbb{R}$) given Features ($u\in \mathbb{R}^d$).
+* **Assumption**: Errors are normally distributed.
 
 1. **Input:** Vector of features  (footage, location...).
 2. **Body:** MLP or Linear Layer.
-
-
-
-*(Note: We often assume fixed variance , so the net only outputs the mean).*
+$$
+\psi = [\mu] = f_\theta(u)
+$$
+*(Note: We often assume fixed variance $\sigma=1$, so the net only outputs the mean).*
 3. **Assumed Dist:** Gaussian.
-
-
-4. **Loss (Training):** Negative Log-Likelihood  **MSE**.
-
-
-5. **Inference:**
-
-
+$$
+p(y\mid \psi) = \mathcal{N}(y; \mu, 1)
+$$
+4. **Loss (Training):** Negative Log-Likelihood $\to$ **MSE**.
+$$
+\mathcal{L} = \|y = \mu \|^2
+$$
+5. **Inference:** We typically output the mean, ignoring noise.
+$$
+\hat y = \mu
+$$
 
 ---
 
 ### **Case II: Image Classification (Supervised / Discriminative)**
 
-* **Task:** Predict Class Label () given Image ().
+* **Task:** Predict Class Label ($y \in \{1 \dots K\}) given Image ($u$).
 * **Assumption:** One mutually exclusive category.
 
-1. **Input:** Image pixels  (e.g., ).
+1. **Input:** Image pixels  (e.g., $224\times 224 \times 3$).
 2. **Body:** ResNet / ViT (Vision Transformer).
-* Outputs a vector of raw scores (logits) .
-* .
-
-
+    * Outputs a vector of raw scores (logits) $z$.
+    * $\psi = \text{Softmax}(z) = [p_1, \dots, p_K]$
 3. **Assumed Dist:** Categorical.
-
-
-4. **Loss (Training):** NLL  **Cross-Entropy**.
-
-
-5. **Inference:**
-
-
+$$
+p(y=k\mid \psi) = p_k
+$$
+4. **Loss (Training):** NLL $\to$ **Cross-Entropy**.
+$$
+\mathcal{L} = - \sum \mathbb{I}(y=k)\log p_k
+$$
+5. **Inference:**: Greedy / Top-1
+$$
+\hat y = \arg \max_k p_k
+$$
 
 ---
 
 ### **Case III: Large Language Models (Self-Supervised / Generative)**
 
-* **Task:** Predict Next Token () given Context ().
-* **Assumption:** The next token is a categorical choice from a vocabulary .
+* **Task:** Predict Next Token ($y$) given Context ($u$).
+* **Assumption:** The next token is a categorical choice from a vocabulary $V$.
 
-1. **Input:** Sequence of token IDs .
+1. **Input:** Sequence of token IDs $u = [t_1, \dots, t_{T}]$.
 2. **Body:** Transformer Decoder (e.g., Llama, GPT).
-* Maps sequence to a hidden state .
-* Projects  to vocabulary size (e.g., 32k logits).
-* .
-
-
+    * Maps sequence to a hidden state $h_T$.
+    * Projects $h_T$ to vocabulary size (e.g., 32k logits).
+    * $\psi = \text{Softmax}(\text{logits})$.
 3. **Assumed Dist:** Categorical (over Vocabulary).
-
-
-4. **Loss (Training):** NLL  **Cross-Entropy** (on the correct next token).
+$$
+p(y \mid u) = \text{Categorical}(\psi)
+$$
+4. **Loss (Training):** NLL $\to$ **Cross-Entropy** (on the correct next token).
 5. **Inference (Decoding):**
-* Here, we **do** sample.
-* **Strategies:** Greedy (), Top-k (sample from top ), Top-p (Nucleus sampling).
-* *Goal:* Balance correctness (mode seeking) with diversity (tail sampling).
-
-
+    * Here, we **do** sample.
+    * **Strategies:** Greedy (), Top-k (sample from top ), Top-p (Nucleus sampling).
+    * *Goal:* Balance correctness (mode seeking) with diversity (tail sampling).
 
 ---
 
-### **Case IV: Image Generation (Diffusion Models)**
+### **Case IV: Vision-Language Models (Image Understanding)**
+* **Task**: Visual Question Answering (VQA) or Captioning (e.g., LLaVA, GPT-4V).
+* **Assumption**: Even with images, the output is just text generation.
 
-* **Task:** Generate Image () given Text () and Noise.
+1. **Input:**: An Image + A Text Prompt (e.g., "What is the animal doing?").
+2. **Body:**:
+    * **Visual Encoder (ViT)**: Converts image to patch features.
+    * **Projector**: Maps patch features to "visual tokens."
+    * **LLM Backbone**: Processes [Visual Tokens, Text Tokens] together.
+    * $\psi = \text{Logits over Vocabulary}$.
+3. **Assumed Dist**: Categorical.
+    * The model predicts the probability of the token "sleeping" given the image features.
+4. **Loss (Training)**: Cross-Entropy.
+    * Only calculated on the text output tokens (we don't "predict" the image).
+5. **Inference**: Standard LLM decoding.
+
+### **Case V: Image Generation (Diffusion Models)**
+
+* **Task:** Generate Image ($y$) given Text ($u$) and Noise.
 * **Assumption:** The reverse process of adding noise is a Gaussian denoising step.
 
 1. **Input:**
-* Noisy Image .
-* Time step .
-* Text Prompt  (Conditioning).
-
-
+    * Noisy Image $x_t$.
+    * Time step $t$.
+    * Text Prompt $u$ (Conditioning).
 2. **Body:** U-Net or DiT (Diffusion Transformer).
-* The network predicts the **noise** component .
-* Mathematically, predicting noise  is equivalent to predicting the mean  of the denoised image distribution.
-* .
-
-
-3. **Assumed Dist:** Gaussian.
-
-
-4. **Loss (Training):** NLL  **MSE** (between predicted noise and real noise).
-
-
+    * The network predicts the **noise** component $\hat \epsilon$.
+    * Mathematically, predicting noise $\hat \epsilon$ is equivalent to predicting the mean $\mu$ of the denoised image distribution.
+    * $\psi = \mu_\theta(x_t, t, u)$.
+3. **Assumed Dist:** Gaussian. The pixel values of the clean image were corrupted by Adding Guassian Noise, so the probability of the previous clean state depends on a Guassian distribution.
+$$
+p(x_{t-1} \mid x_t) = \mathcal{N}(x_{t-1}; \mu_\theta, \sigma_t^2I)
+$$
+4. **Loss (Training):** NLL $\to$ **MSE** (between predicted noise and real noise).
+$$
+\mathcal{L} = \|\epsilon_{\text{real}} - \epsilon_\theta(x_t, t, u)\|^2
+$$
 5. **Inference:**
-* Start with pure noise .
-* Iteratively sample  using the predicted .
-
-
+* Start with pure noise $x_T \sim \mathcal{N}(0, I)$.
+* Iteratively sample $x_{t-1} \sim p(x_{t-1} \mid x_t)$ using the predicted $\mu_\theta$.
 
 ---
 
-### **Case V: Multi-Modal Understanding (CLIP / Contrastive)**
+### **Case VI: Image-Text Matching (CLIP / Contrastive)**
 
-* **Task:** Align Images () and Text () in a shared space.
-* **Assumption:** Correct pairs  should have high similarity; mismatched pairs  should have low similarity.
+* **Task:** Align Images ($u$) and Text ($v$) in a shared space.
+* **Assumption:** Correct pairs $(u_i, v_i)$  should have high similarity; mismatched pairs $(u_j, v_j)$ should have low similarity.
 
-1. **Input:** Batch of  image-text pairs .
+1. **Input:** Batch of $N$ image-text pairs $\{(u_1, v_1), \dots, (u_N, v_N)\}$.
 2. **Body:** Two Encoders.
-* .
-* .
-* .
-
-
+    * $E_{\text{img}}(u) \to \text{vector } z_u$.
+    * $E_{\text{txt}}(v) \to \text{vector } z_v$..
+    * $\psi = \text{Similarity Matrix } (N \times N)$.
 3. **Assumed Dist:** Categorical (Batch-wise).
-* For the -th image, which of the  texts is the correct one?
-* .
-
-
+    * For the $i$-th image, which of the $N$ texts is the correct one?
+    * $p(y = i \mid u_i) = \text{Softmax}(z_{u_i} \cdot z_{v_j})$.
 4. **Loss (Training):** **InfoNCE** (Symmetric Cross-Entropy over the batch).
 5. **Inference (Zero-Shot Classification):**
-* Embed input image.
-* Embed "classes" as text (e.g., "A photo of a dog", "A photo of a cat").
-* Pick the text embedding with highest cosine similarity.
-
-
+    * Embed input image.
+    * Embed "classes" as text (e.g., "A photo of a dog", "A photo of a cat").
+    * Pick the text embedding with highest cosine similarity.
 
 ---
 
 ## **Summary Table: The Grand Unification**
 
-| Model | Input  | Body  | Head Parameter  | Assumed Dist. | Loss (NLL) |
-| --- | --- | --- | --- | --- | --- |
-| **Regression** | Features | MLP | Mean  | **Gaussian** | MSE |
-| **Classification** | Image | ResNet | Logits | **Categorical** | Cross-Entropy |
-| **LLM** | Tokens | Transformer | Logits | **Categorical** | Cross-Entropy |
-| **Diffusion** | Noisy Img | U-Net | Mean  (via noise) | **Gaussian** | MSE |
-| **CLIP** | Img/Txt | Dual Enc. | Sim. Matrix | **Categorical** | InfoNCE |
+| Model              | Input     | Body        | Head Parameter    | Assumed Dist.   | Loss (NLL)    |
+| ------------------ | --------- | ----------- | ----------------- | --------------- | ------------- |
+| **Regression**     | Features  | MLP         | Mean              | **Gaussian**    | MSE           |
+| **Classification** | Image     | ResNet      | Logits            | **Categorical** | Cross-Entropy |
+| **LLM**            | Tokens    | Transformer | Logits            | **Categorical** | Cross-Entropy |
+| **VLM**            | Img + Txt | ViT + LLM   | Logits            | **Categorical** | Cross-Entropy |
+| **Diffusion**      | Noisy Img | U-Net / DiT | Mean  (via noise) | **Gaussian**    | MSE           |
+| **CLIP**           | Img/Txt   | Dual Enc.   | Sim. Matrix       | **Categorical** | InfoNCE       |
 
 
 
@@ -704,150 +712,6 @@ We will now dissect distinct architectures using our unified 4-step workflow:
 
 
 
-
-
-# LATER
-
-
-
-### Input and Output
-
-**Input:** The "Conditioning Information."
-**Output:** The "Distribution Parameters"
-
-| Task | Input | Output |
-| --- | --- | --- |
-| **Supervised (Regression)** | **Features** (e.g., House Size) | **Predicted Mean Target** (e.g., Price ) |
-| **Supervised (Classification)** | **Image** (e.g., Pixels) | **Logits / Probabilities** (Vector) |
-| **Autoencoder** | **Image** () | **Reconstructed Image** () |
-| **VAE (Decoder)** | **Latent Code** () | **Reconstructed Mean** () |
-
-## Case Study
-### 1. Large Language Models (LLM)
-
-*Task: Text Generation (e.g., GPT-4, Llama)*
-
-* **Input:** A sequence of tokens (Context).
-* `"The capital of France is"`
-
-
-* **The Model ():** A Transformer Decoder.
-* **Output ():** **Logits**.
-* A vector of size 50k (vocabulary size). Each number represents the "unnormalized score" for a word.
-* 
-
-
-* **Likelihood Assumption (Noise):** **Categorical Distribution**.
-* We assume the next word is chosen probabilistically (rolling a 50,000-sided die).
-* To get probabilities, we apply Softmax to .
-
-
-* **Loss:** Cross-Entropy (Negative Log-Likelihood).
-* We want the probability of the *actual* next word ("Paris") to be 1.0.
-
-
-
-> **Key Insight:** The "Noise" here is the ambiguity of language. The model outputs a distribution because there is rarely only *one* valid next word.
-
----
-
-### 2. Vision-Language Models (Image Understanding)
-
-*Task: Visual Question Answering (VQA) or Captioning (e.g., Llava, GPT-4V)*
-
-* **Input:** An Image + A Text Prompt.
-* `
-
-
-
-* "What is the animal doing?"`
-
-* **The Model ():** A Visual Encoder (ViT) connected to an LLM.
-* **Output ():** **Logits** (Same as LLM!).
-* Even though the input is multi-modal, the *output* is usually just text tokens.
-*  predicts the token "sleeping".
-
-
-* **Likelihood Assumption:** **Categorical Distribution**.
-* **Loss:** Cross-Entropy.
-
-> **Key Insight:** To the model, an image is just "translated" into vectors that look like text embeddings. The objective remains "predict the next word," but conditioned on visual features.
-
----
-
-### 3. Text-to-Image Generation (Diffusion Models)
-
-*Task: Generating images from prompts (e.g., Stable Diffusion, Midjourney)*
-
-This is the most complex one because the "Signal" and "Noise" are flipped.
-
-* **Input:** A **Noisy Image** () + A **Text Prompt** + Time step ().
-* We take a clean image and add 50% static to it. We give this static-filled image to the model.
-
-
-* **The Model ():** A U-Net or Transformer.
-* **Output ():** **The Noise ()**.
-* Strangely, the model is trained to predict *what the static looks like*, so we can subtract it.
-
-
-* **Likelihood Assumption:** **Gaussian**.
-* We assume the pixel values of the clean image were corrupted by Adding Gaussian Noise.
-* Therefore, the probability of the previous clean state depends on a Gaussian distribution.
-
-
-* **Loss:** **Mean Squared Error (MSE)**.
-* 
-* We measure the Euclidean distance between the *actual* static we added and the *static* the model guessed.
-
-
-
-> **Key Insight:** In Diffusion,  acts as a "Denoising Engine." By predicting the noise (assumed Gaussian), it allows us to reverse the process and uncover the image.
-
----
-
-### 4. Image-Text Matching (Contrastive Learning)
-
-*Task: Connecting Images to Concepts (e.g., CLIP)*
-
-This is not "generating" data, but "aligning" distributions.
-
-* **Input:** A batch of Images  and a batch of Text Captions .
-* **The Model ():** Two Encoders (Image Encoder & Text Encoder).
-* **Output ():** **Embedding Vectors**.
-*  (Vector summary of the image)
-*  (Vector summary of the text)
-
-
-* **Likelihood Assumption:** **InfoNCE (Categorical over the batch)**.
-* We assume that for a specific image , the "correct" caption  is the one that aligns best, and all other captions in the batch are "noise/distractors."
-* It treats the batch like a multiple-choice test.
-
-
-* **Loss:** Contrastive Loss.
-* Maximize the dot product (similarity) of correct pairs .
-* Minimize the dot product of incorrect pairs.
-
-
-
----
-
-### Summary Table
-
-| Domain | Input to  | Output  (Parameters) | Assumed Distribution (Noise) | Loss Function |
-| --- | --- | --- | --- | --- |
-| **LLM** | Text Context | Logits (Next Token Scores) | **Categorical** (Multinomial) | Cross-Entropy |
-| **Image Understanding** | Image + Text Query | Logits (Next Token Scores) | **Categorical** (Multinomial) | Cross-Entropy |
-| **Diffusion (Generation)** | Noisy Image + Prompt | Predicted Noise () | **Gaussian** (Normal) | MSE () |
-| **CLIP (Matching)** | Image + Text | Embedding Vectors | **Categorical** (over batch) | Contrastive Loss |
-
-
-  
-
-
-
----
-
----
 
 
 ## **4. Conceptual Distinctions**
@@ -861,19 +725,8 @@ This is not "generating" data, but "aligning" distributions.
 
 * In **Homoscedastic** regression (Standard MSE), we assume noise is constant and ignore it.
 * In **Probabilistic** models (LLMs/VAEs),  predicts the parameters of the noise distribution (e.g., variance/spread), effectively treating uncertainty as part of the signal.
-To answer your questions directly:
 
-1. **Are they all self-supervised?** Mostly, yes (for pre-training), but Fine-Tuning often introduces human labels.
-2. **Are they learning the distribution or the boundary?** Generative models (LLM, Diffusion) learn the **Distribution**. Discriminative models (CLIP, Classifiers) learn the **Boundary**.
 
-Here is the breakdown of why this matters.
-
-### 1. Self-Supervised vs. Supervised
-
-The confusion usually comes from the definition of a "Label."
-
-* **Supervised:** The label  is external information provided by a human (e.g., "This image contains a cat").
-* **Self-Supervised:** The label  is a hidden part of the input data  itself. The model plays "Fill in the Blanks."
 
 | Model | Type | Where does the "Label" come from? |
 | --- | --- | --- |
@@ -882,37 +735,6 @@ The confusion usually comes from the definition of a "Label."
 | **CLIP (Matching)** | **Weakly Supervised** | Uses (Image, Text) pairs scraped from the web (alt-text). While not hand-labeled by annotators strictly for training, the text *is* an external label describing the image. |
 | **VQA / Chatbot (Fine-Tuning)** | **Supervised** | Humans explicitly write: *Input: "Summarize this." Output: "Here is the summary..."* This is **Instruction Tuning**. |
 
-> **Key Nuance:** Pre-training is usually self-supervised (learning the structure of the world). Fine-tuning (RLHF, SFT) is supervised (learning to follow instructions).
-
-### 2. Learning Distribution () vs. Decision Boundary ()
-
-This is the difference between an **Artist** and a **Critic**.
-
-#### A. The "Artist": Learning the Distribution (Generative)
-
-**Models:** LLMs, Diffusion, VAEs.
-**Goal:** They want to know **probability density** everywhere.
-
-* They don't just want to know "Is this a cat?"
-* They need to know "What does a cat look like?" (Where is the manifold of cat images?).
-* **Why?** To generate a new cat, they need to sample from high-probability regions of that distribution.
-* **Mathematically:** They approximate  (or ).
-
-#### B. The "Critic": Learning the Boundary (Discriminative)
-
-**Models:** Classifiers, Detectors, CLIP.
-**Goal:** They want to find the **line** that separates concepts.
-
-* They don't care if the input is a realistic cat or a cartoon cat, as long as it's on the "Cat" side of the line.
-* They ignore the internal structure of the data manifold and focus only on the differences between classes.
-* **Mathematically:** They approximate  directly, often ignoring .
-
-### Comparison Visualized
-
-* **Discriminative (Boundary):** Draws a line between Red and Blue dots. It doesn't care where the dots are, just which side they are on.
-* **Generative (Distribution):** Circles the region where Red dots live and the region where Blue dots live. It knows the *shape* of the data clusters.
-
-### Summary Table
 
 | Model Class | Examples | Supervision Source | What it Learns |
 | --- | --- | --- | --- |
