@@ -496,52 +496,50 @@ $$
 
 ---
 
-# **5. Learning Paradigms & Case Studies**
+# **Learning Paradigms & Case Studies**
 
 Having established that a model is simply a parametric tool to approximate a probability distribution, we can now classify distinct learning paradigms based on **what** distribution they model and **how** they access data.
 
-## **5.1. The Taxonomy**
+## **The Taxonomy**
 
-### **A. Supervised vs. Unsupervised (The Data View)**
+### **Supervised vs. Unsupervised (The Data View)**
 
-This distinction is based on the **Dataset **.
+This distinction is based on the **Dataset $\mathcal{D}$**.
 
 1. **Supervised Learning:**
-* **Data:** Pairs .
-* **Goal:** Learn the conditional distribution .
-* *Analogy:* "Teacher and Student." The teacher provides the question () and the correct answer ().
+* **Data:** Pairs $x = (u, y)$ .
+* **Goal:** Learn the conditional distribution $p(y \mid u)$.
+* *Analogy:* "Teacher and Student." The teacher provides the question ($u$) and the correct answer ($y$).
 
 
 2. **Unsupervised Learning:**
-* **Data:** Only raw samples . (Or effectively ).
-* **Goal:** Learn the structure of the data itself, often modeled as .
+* **Data:** Only raw samples $x = (u)$. (Or effectively $y=u$).
+* **Goal:** Learn the structure of the data itself, often modeled as $p(u)$.
 * *Analogy:* "Explorer." The model observes the world and tries to find patterns without explicit guidance.
-* *Note:* **Self-Supervised Learning** (like training LLMs) is technically Unsupervised (we only have text), but we mathematically frame it as Supervised by creating artificial  pairs from the data itself (e.g.,  "The",  "cat").
+* *Note:* **Self-Supervised Learning** (like training LLMs) is technically Unsupervised (we only have text), but we mathematically frame it as Supervised by creating artificial $(u, y)$ pairs from the data itself (e.g., $u =$ "The", $y=$"cat").
 
 
 
-### **B. Discriminative vs. Generative (The Modeling View)**
+### **Discriminative vs. Generative (The Modeling View)**
 
 This distinction is based on the **Probability Distribution** being learned.
 
 1. **Discriminative Models:**
-* **Model:** 
-* **Focus:** The **Decision Boundary**. Given input , which output  is most likely?
+* **Model:** $p(y\mid u)$ 
+* **Focus:** The **Decision Boundary**. Given input $u$, which output $y$ is most likely?
 * *Behavior:* Can distinguish "Dog" from "Cat," but cannot draw a dog.
 * *Examples:* Logistic Regression, Image Classifiers.
 
 
 2. **Generative Models:**
-* **Model:**  (Joint) or  (Marginal).
+* **Model:**$p(u,y)$ (Joint) or $p(u)$ (Marginal).
 * **Focus:** The **Data Geometry**. How is the data actually created?
-* *Behavior:* Can generate new samples . To do this, they must understand the internal structure of the data.
+* *Behavior:* Can generate new samples $u_{\text{new}} \sim p(u)$. To do this, they must understand the internal structure of the data.
 * *Examples:* LLMs, Diffusion Models, VAEs.
-
-
 
 ---
 
-## **5.2. Case Studies: The Unified Workflow**
+## **Case Studies: The Unified Workflow**
 
 We will now dissect distinct architectures using our unified 4-step workflow:
 
