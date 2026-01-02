@@ -34,6 +34,8 @@ We never assume the parametric form of the *true* data distribution $p_{\text{da
 
 This is equivalent to drawing from the distribution that we (as the modeler) assume, using *local* distribution parameters $\psi$ output by our deterministic base model.
 
+---
+
 ## **Deterministic Body $f_\theta$**
 
 A function that maps input context $u$ to **Local Distribution Parameters** $\psi$.
@@ -62,7 +64,9 @@ In modern deep learning, however, with the use of
 - **RMSNorm**: normalizing scale (variance), but empirically keeping the latent states centered around zero improves stability during training,
 we usually do not use bias in MLP layers. However, in final output layer (*lm_head*), we still usually retain the bias part, learning a shift of logits.
 
-## **The Stocastic Head $(p(\cdot \mid \psi))$**
+---
+
+## **The Stochastic Head $(p(\cdot \mid \psi))$**
 
 A specific probability density form $p(\cdot \mid \psi)$ that defines how the target $y$ is distributed given those parameters ($f_\theta$).
 
@@ -119,6 +123,8 @@ p(y \mid x) = \mathcal{N}(y; f_\theta(x), \sigma(x))
 $$
 * **Result:** The mean  is now the output of a multi-layer perceptron. The center of the Gaussian can trace **any arbitrary curve**, wiggling and looping to follow the true data manifold perfectly.
 
+---
+
 ### **Universal Approximation Theorem (UAT)**
 
 We rely on the Universal Approximation Theorem to guarantee that our "moving cursor" strategy is mathematically possible. UAT states that a feedforward neural network with a single hidden layer (of sufficient width) and non-linear activation functions (like ReLU) can approximate **any** continuous function $f: \mathbb{R}^n \to \mathbb{R}^m$ to arbitrary accuracy $\epsilon$.
@@ -149,6 +155,8 @@ However, most real-world problems are **One-to-Many**.
 - Unobserved Variables: We rarely observe the full state of the universe. The "Stochastic Part" captures the variations caused by hidden factors we cannot measure.
 - Generative Diversity: To generate new samples (e.g., different images of dogs), we need a source of randomness to sample from.
 
+---
+
 ### **Terminology Equivalence**
 
 While distinct terms are used across fields, they refer to the exact same mathematcial object: the conditional probability distribution $p(y \mid \psi)$.
@@ -175,6 +183,8 @@ e.g. Top-k / Top-p / Temperature:
     - We verify if the sampled text is "good" or "bad" using a Reward Model.
     - We then calculate a gradient to update $\theta$ so that the model becomes more likely to generate that specific "good" sample again.
     - Because sampling is discrete and breaks back-propagation, we use the **Policy Gradient Theorem (REINFORCE)** to bypass the missing gradient.
+
+---
 
 ### **Clarification: Additive Noise vs. Stochastic Sampling**
 
@@ -239,6 +249,8 @@ $$
 \log P(D \mid \theta) = \sum_{i=1}^{N} \log P(y_i \mid u_i, \theta)
 $$
 
+---
+
 ## Maximum Likelihood Estimation (MLE)
 
 Given the *family of distribution* parameterized by $\theta$ 
@@ -266,6 +278,8 @@ $$
 $$ 
 
 MLE minimizes the expected negative log-likelihood (NLL) over the observed empirical distribution.
+
+---
 
 ## KL Divergence Equivalence of MLE
 
@@ -312,6 +326,7 @@ MLE minimizes the **Forward KL Divergence** from the true data distribution to t
 - Heavily penalizes the model for assigning low probability to real data points (missing modes).
 - Does not heavily penalize assigning probability to regions where data doesn't exist (potential for hallucinations).
 
+---
 
 ### **When Data is Scarce: Maximum A Posteriori (MAP)**
 
@@ -346,6 +361,8 @@ $$
 $$
 
 Every specific loss (MSE, MAE, CE) is simply the NLL derived from a specific choice of **Observation Model** (Noise Distribution).
+
+---
 
 ## **Cross-Entropy: Discrete, Categorical Targets**
 
@@ -387,6 +404,8 @@ $$
 $$
 i.e., a sum of categorical NLL terms.
 
+---
+
 ### **Minimizing Cross-Entropy is Equivalent to Minimizing KL**
 Minimizing CE minimizies KL from the lablel's Dirac distribution to the model distribution. Recall,
 $$
@@ -412,6 +431,8 @@ $$
 
 - Standard **Binary Cross-Entropy** used in *logistic regression* and discriminators.
 - This is equivalent to Categorical CE case with 2 classes.
+
+---
 
 ## **MSE & MAE: Continuous Targets (Gaussian / Laplace)**
 
@@ -518,7 +539,7 @@ This distinction is based on the **Dataset $\mathcal{D}$**.
 * *Analogy:* "Explorer." The model observes the world and tries to find patterns without explicit guidance.
 * *Note:* **Self-Supervised Learning** (like training LLMs) is technically Unsupervised (we only have text), but we mathematically frame it as Supervised by creating artificial $(u, y)$ pairs from the data itself (e.g., $u =$ "The", $y=$"cat").
 
-
+---
 
 ### **Discriminative vs. Generative (The Modeling View)**
 
@@ -533,7 +554,7 @@ This distinction is based on the **Probability Distribution** being learned.
 
 2. **Generative Models:**
 * **Model:**$p(u,y)$ (Joint) or $p(u)$ (Marginal).
-* **Focus:** The **Data Geometry**. How is the data actually created?
+* **Focus:** The **Manifold Geometry** and **Data Density**. How is the data actually created? 
 * *Behavior:* Can generate new samples $u_{\text{new}} \sim p(u)$. To do this, they must understand the internal structure of the data.
 * *Examples:* LLMs, Diffusion Models, VAEs.
 
@@ -622,7 +643,7 @@ $$
 
 ---
 
-### **Case IV: Vision-Language Models (Image Understanding)**
+### **Case IV: Vision-Language Models, Image Understanding (Supervised / Generative)**
 * **Task**: Visual Question Answering (VQA) or Captioning (e.g., LLaVA, GPT-4V).
 * **Assumption**: Even with images, the output is just text generation.
 
@@ -638,7 +659,7 @@ $$
     * Only calculated on the text output tokens (we don't "predict" the image).
 5. **Inference**: Standard LLM decoding.
 
-### **Case V: Image Generation (Diffusion Models)**
+### **Case V: Image Generation, Diffusion (Self-Supervised / Generative)**
 
 * **Task:** Generate Image ($y$) given Text ($u$) and Noise.
 * **Assumption:** The reverse process of adding noise is a Gaussian denoising step.
@@ -665,7 +686,7 @@ $$
 
 ---
 
-### **Case VI: Image-Text Matching (CLIP / Contrastive)**
+### **Case VI: Image-Text Matching, CLIP / Contrastive (Weakly Supervised / Discriminative)**
 
 * **Task:** Align Images ($u$) and Text ($v$) in a shared space.
 * **Assumption:** Correct pairs $(u_i, v_i)$  should have high similarity; mismatched pairs $(u_j, v_j)$ should have low similarity.
@@ -686,7 +707,7 @@ $$
 
 ---
 
-## **Summary Table: The Grand Unification**
+## **Summary Table**
 
 | Model              | Input     | Body        | Head Parameter    | Assumed Dist.   | Loss (NLL)    |
 | ------------------ | --------- | ----------- | ----------------- | --------------- | ------------- |
@@ -696,49 +717,3 @@ $$
 | **VLM**            | Img + Txt | ViT + LLM   | Logits            | **Categorical** | Cross-Entropy |
 | **Diffusion**      | Noisy Img | U-Net / DiT | Mean  (via noise) | **Gaussian**    | MSE           |
 | **CLIP**           | Img/Txt   | Dual Enc.   | Sim. Matrix       | **Categorical** | InfoNCE       |
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## **4. Conceptual Distinctions**
-
-### **4.1. Generative vs. Discriminative**
-
-* **Discriminative (Classifiers/CLIP):** Approximates . It learns the **decision boundary** between classes. It ignores the density of .
-* **Generative (LLMs/Diffusion/VAE):** Approximates . It learns the **manifold geometry** and density of the data. This requires "learning the noise" structure to sample valid new data.
-
-### **4.2. "Learning the Noise"**
-
-* In **Homoscedastic** regression (Standard MSE), we assume noise is constant and ignore it.
-* In **Probabilistic** models (LLMs/VAEs),  predicts the parameters of the noise distribution (e.g., variance/spread), effectively treating uncertainty as part of the signal.
-
-
-
-| Model | Type | Where does the "Label" come from? |
-| --- | --- | --- |
-| **LLM (Pre-training)** | **Self-Supervised** | The "next word" is already in the text. We just hide it and ask the model to guess. No human needed. |
-| **Diffusion** | **Self-Supervised** | The "noise" is mathematically generated by us. We take a clean image, add noise, and tell the model "predict the noise we just added." |
-| **CLIP (Matching)** | **Weakly Supervised** | Uses (Image, Text) pairs scraped from the web (alt-text). While not hand-labeled by annotators strictly for training, the text *is* an external label describing the image. |
-| **VQA / Chatbot (Fine-Tuning)** | **Supervised** | Humans explicitly write: *Input: "Summarize this." Output: "Here is the summary..."* This is **Instruction Tuning**. |
-
-
-| Model Class | Examples | Supervision Source | What it Learns |
-| --- | --- | --- | --- |
-| **Generative** | LLM, Diffusion, VAE | **Self-Supervised** (Data predicts itself) | **The Distribution:** The shape, density, and structure of the data manifold. |
-| **Discriminative** | ResNet (ImageNet), Spam Filter | **Supervised** (Human labels) | **The Boundary:** The surface separating Class A from Class B. |
-| **Hybrid** | CLIP (Contrastive) | **Web-Supervised** (Alt-text) | **Alignment:** It learns a "Joint Space" where boundaries between images align with boundaries between text. |
-
