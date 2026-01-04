@@ -157,3 +157,21 @@ Even if we capture the dimensionality of the principal manifold perfectly, there
 
 
 # Variational Auto Encoder
+
+
+## Questions
+
+- For image embedding models (like ViT), or in general for all embedding models (like using BERT for text embeddings, or even LLM for word embeddings), are we essentially using the same ideas for Auto-Encoders: that all data lie in the smaller manifold compared to the ambient space? Like a compression, we enforce the representation, our 'encoded' way of input from the original, raw input, will be better suited for down-stream tasks, like adding a LM head or MLP for certain classification work, where we then assume a certain (categorical) distribution?
+
+- Following this question, even we name 'intermediate representation' as part of the whole model, can we effectively assume encoder and decoders are decoupled? Where the embedding of the encoder can be used, or easily fine-tuned, for other down-stream tasks? Does this apply to AE, or VAE's encoder and decoder as well?
+
+- Can we unify the way VAE is doing encoding, with how we form our 'stochastic' part of the model? i.e. we are outputing $\psi$ with local parameters for the distribution, whereas in VAE for the latent variables we are essentially outputting mean and var for a guassian distribution? When we say our latent does not follow a specific distribution, we are saying the local parameters themselves? 
+
+- In VAE, we say given the input, we have the latent from the encoder, where it is local parameters of a distribution; can we apply this to ALL the reprensentation / embeddings for other tasks, e.g. language modeling? Instead of output a fixed vector for a word, why don't we follow the latent idea of VAE and train the encoder in a way that it output a parameters of the distribution? Adding the stochastic even on the fixed embedding vectors.  
+
+- Taking a step back, a more fundamental question is, what is the purpose of VAE? In image understanding, we have both text and image input, where the image going to ViT for an embedding, and we also have text embedding from our decoder's embedding table, and then we do certain cross-attention and the decoding part will be 'controlled', (and for image generation as well). For VAE, however, we input an image, and we are output an image as well, there's no explicit control in it, is it? The best we can do is outputting the exact same image? Why we need VAE, or in general, this task at all? How do we add 'control' in the images we are generating?
+
+
+
+
+
