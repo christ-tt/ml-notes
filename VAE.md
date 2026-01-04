@@ -188,6 +188,29 @@ Even if we capture the dimensionality of the principal manifold perfectly, there
         - Diversity
 
 
+## **Control** Problem: Why VAE?
+
+- If a VAE just takes an image $u$ and reconstructs it $\hat u \approx u$, it's just a useless photocopier
+- The **Real Purpose**: Generation. We don't train a VAE to use it on **existing** images. We train it so we can **throw away** the Encoder and **use the decoder alone**.
+    - Training: Encoder to Dedcoder, learning to map data to the latent space
+    - Inference: Random Noise $z \sim \mathcal{N}(0, 1) \to$ Decoder $\to$ New Image.
+    - Result: The model *dreams* up a person who doesn't exist.
+- Adding control: **CVAE**: making it like Stable Diffusion (with text prompt instructing to generate something).
+    - Training:
+        - We input $z$ + **Label**.
+        - Input: $u$ (Image of digit 7) + $c$ (Lable 7)
+        - Latent: Encoder maps image to $z$
+        - Decoder: Taking $(z, c)$ and tries to reconstruct.
+    - Inference:
+        - Sample noise $z$
+        - Inject Control: pick label $c = '9'$
+        - Decoder outputs a generated 9.
+- In LLaVA, the 'Control' is the image embedding
+    - The LLM decoder is generating text, conditioned on the image latent.
+    - Conceptually identical to a CVAE, where label $c$ is replaced by a rich vector representation from a ViT.
+
+
+
 ## Questions
 
 - For image embedding models (like ViT), or in general for all embedding models (like using BERT for text embeddings, or even LLM for word embeddings), are we essentially using the same ideas for Auto-Encoders: that all data lie in the smaller manifold compared to the ambient space? Like a compression, we enforce the representation, our 'encoded' way of input from the original, raw input, will be better suited for down-stream tasks, like adding a LM head or MLP for certain classification work, where we then assume a certain (categorical) distribution?
