@@ -158,6 +158,35 @@ Even if we capture the dimensionality of the principal manifold perfectly, there
 
 # Variational Auto Encoder
 
+## **Important Unification & Comparison to Embedding Models**
+
+- **Embeddings Are Just Manifold Compression**
+    - Whether it is **ViT** (images), **BERT** (Text), or Word2Vec, the fundamental hypothesis is the **Manifold Hypothesis**
+    - For images, the **Ambient Space**, raw input is, e.g. $ 256 \times 256 $, massive and mostly emptly
+    - The **Manifold** lies on a low-dimensional surface emedded within that high-dimensional space;
+    - Encoders $f_\theta$ maps the ambient space $u$ to the coordinate system of the manifold $z$ (embedding)
+    - **Head** (Classifier, LLM...) is a function (linear / MLP) that operates on this manifold.
+    - For **Intermediate Representation**, Embeddings are *not* the distribution parameters $\psi$, but just a transformed version of the input $u$; where we don't *explicitly* assume a distribution of the representation itself; Instead, we treat it as a *point mass*. The *distribution* comes at the *Head* part.
+- **Transfer Learning**
+    - We can decouple Encoders and Decoders
+    - Given Encoders mainly handles *Manifold Mapping*, in image generation case, we can train Encoder + Decoder to reconstruct images, and then throw away the decoder to reuse encoder by freezing it, and slap a new *Classification Head* on top.
+    - For our VAE case, we typically just take the mean $\mu$ and treat it as a determinisitc embeddings, ignoring variance $\sigma$
+- **Unifying VAEs to Probabilistic Modeling**
+    - Encoder is the determinisitc network, and we output the local parameters $\psi = [\mu, \sigma]$
+    - The assumed distribution is Gaussian $z \sim \mathcal{N}(\mu, \sigma)$
+    - **Sampling**: draw a latent vector $z$ using the reparameterization trick $z = \mu + \sigma \odot \varepsilon$
+    - **The Prior** ($p(z)$) We assume the *global* distribution of latents across the whole dataset looks like a standard normal $\mathcal{N}(0, 1)$
+    - The **Posterior** ($q(z\mid u)$): for a specific image, the distribution $\mathcal{N}(\mu_u, \sigma_u)$.
+- **Stochastic Embeddings** of everything (e.g. LLM)
+    - Called **Probabilistic Embedding** or **Bayesian Nueral Network**
+    - Not the default
+        - **Complexity**: sampling breaks standard backpropagtion, and we need *Reparameterization Trick** (moving the randomness to an external $\epsilon$
+        - **Compute**: more parameters to predict both $\mu, \sigma$
+        - **Necessity**: For discriminative tasks (Classification), we usually only cares about the best guess $\mu$, and the uncertainty $\sigma$ is often unnecessary.
+    - Use it in:
+        - Uncertainty Estimation
+        - Diversity
+
 
 ## Questions
 
