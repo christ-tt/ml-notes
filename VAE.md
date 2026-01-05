@@ -371,14 +371,10 @@ To understand Diffusion, we don't need to learn a "new" algorithm; we just need 
 
 An HVAE is simply a VAE that doesn't stop at one layer of latent variables. Instead of a single compression step, it performs a sequence of them.
 
----
+**Motivation**: Trying to compress a complex $256 \times 256$ image into a single vector $z$ causes "information bottleneck." The model is forced to average out fine details (high frequency) to save the global structure (low frequency).
 
-### **1. The Architecture: Building the Ladder**
-
-In a standard VAE, we have one jump: Data $x \to$  Latent $z$.
-In an HVAE, we have a chain of latent variables $z_1, z_2, \dots, z_T$.
-
-#### **A. The Encoder (Bottom-Up / Inference)**
+## **Architecture**
+### **A. The Encoder (Bottom-Up / Inference)**
 
 We compress the data step-by-step.
 
@@ -386,8 +382,9 @@ We compress the data step-by-step.
 * **Step 2:** Map $z_1$ to $z_2$ (Mid-level shapes).
 * **Step T:** Map $z_{T-1}$ to $z_T$  (High-level semantics, "Cat").
 $$q(z_{1:T} \mid x) = q(z_1 \mid x) \times q(z_2 \mid z_1) \times \dots \times q(z_T \mid z_{T-1})$$
+We are assuming a **Markov Chain**: $z_{t}$ only depends on $z_{t-1}$ for $t > 1$.
 
-#### **B. The Decoder (Top-Down / Generation)**
+### **B. The Decoder (Top-Down / Generation)**
 
 We reconstruct the image step-by-step.
 
@@ -398,17 +395,16 @@ $$p(x, z_{1:T}) = p(z_T) \times p(z_{T-1} \mid z_T) \times \dots \times p(x \mid
 
 ---
 
-### **2. Why do this? (The "Blur" Problem)**
+## **ELBO**
+$$
+\begin{align}
+\text{ELBO} &= \mathbb{E}_{q} \left[ \log \frac{p(x, z_{1:T})}{q(z_{1:T} \mid x)} \right] \\
+\frac{p(x, z_{1:T})}{q(z_{1:T} \mid x)} &= \frac{p(x \mid z_1) \, p(z_1 \mid z_2) \dots p(z_{T-1} \mid z_T) \, p(z_T)}{q(z_1 \mid x) \, q(z_2 \mid z_1) \dots q(z_T \mid z_{T-1})} \\
+\text{ELBO} &= \underbrace{\mathbb{E}_q [\log p(x \mid z_1)]}_{\text{Reconstruction}} + \underbrace{\sum_{t=2}^{T} \mathbb{E}_q \left[ \log \frac{p(z_{t-1} \mid z_t)}{q(z_{t-1} \mid z_{t-2}?)} \right]}_{\text{Transition Terms}} - \underbrace{D_{KL}(q(z_T \mid z_{T-1}) \| p(z_T))}_{\text{Top-Level Prior}} \\
+\end{align}
+$$
 
-Standard VAEs are infamous for generating blurry images.
 
-* **Reason:** Trying to compress a complex $256 \times 256$ image into a single vector $z$ causes "information bottleneck." The model is forced to average out fine details (high frequency) to save the global structure (low frequency).
-* **HVAE Solution:** It splits the job.
-*  $z_T$ handles the global structure (Concept).
-*  $z_1$ handles the fine texture (Details).
-* The model doesn't have to cram everything into one vector.
-
----
 
 ### **3. The Mathematical Bridge to Diffusion**
 
