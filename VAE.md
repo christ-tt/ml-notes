@@ -161,7 +161,7 @@ Even if we capture the dimensionality of the principal manifold perfectly, there
 ## **Training (The Encoder-Decoder Loop)**
 **Goal**: Learn the manifold parameters $\theta$ (Decoder) and the mapping $\phi$ (Encoder).
 1. **Input** ($x$): A real image (e.g., a handwritten "7").
-2. **Encoder** ($f_{\text{enc}}$):
+2. **Encoder** ($f_{\text{enc}}$), parametrized by $\phi$:
     - Maps $x$ to latent parameters: Mean $\mu_z$ and Log-Variance $\log \sigma_z^2$.
     - $\psi_{\text{enc}} = [\mu_z, \sigma_z]$.
     - Define the **Approximate Posterior** $q(z \mid u) = \mathcal{N}(\mu_z, \sigma_z)$.
@@ -173,8 +173,10 @@ Even if we capture the dimensionality of the principal manifold perfectly, there
     $$
     z = \mu_z + \sigma_z \odot \epsilon
     $$
+    - $\odot$ is the Hadamard Product, i.e. **element-wise multiplication**.
     - Now gradients can flow back to $\mu$ and $\sigma$.
-4. **Decoder** ($f_{\text{dec}}$):
+    - This is simply the formal way of saying 'Sampling from Gaussian is just adding noise'.
+4. **Decoder** ($f_{\text{dec}}$), parameterized by $\theta$:
     - Maps $z$ back to data space parameters (usually just the mean).
     - $\psi_{\text{dec}} = \mu_x$, define the **Likeihood** $p(x\mid z) = \mathcal{N}(\mu_x, I)$
     - $\hat{x} = \text{Decoder}(z)$.
@@ -185,10 +187,72 @@ Even if we capture the dimensionality of the principal manifold perfectly, there
     \mathcal{L} = \|x - \hat{x}\|^2 + \beta \cdot D_{KL}(\mathcal{N}(\mu_z, \sigma_z) \| \mathcal{N}(0, I))
     $$
 
-## **ELBO**
+## **ELBO (Evidence Lower Bound)**
+The ELBO is the objective function we actually maximize when training a VAE.Since we cannot calculate the true probability of the data (the "Evidence" $\log p(u)$) directly because the integral over all latents is intractable, we optimize this proxy instead.
+It is defined as:
+$$
+\text{ELBO} = \underbrace{\mathbb{E}_{z \sim q_\phi(z|u)} [\log p_\theta(u \mid z)]}_{\text{Reconstruction Term}} - \underbrace{D_{KL}(q_\phi(z|u) \,\|\, p(z))}_{\text{Regularization Term}}
+$$
+
+The marginal log-likelihood (the Evidence) can be decomposed into: 
+$$
+\log p_\theta(u) = \text{ELBO} + D_{KL}(q_\phi(z|u) \,\|\, p_\theta(z|u))
+$$
+Since KL Divergence is always non-negative ($D_{KL} \ge 0$), we get the inequality:
+$$  
+\log p_\theta(u) \ge \text{ELBO}
+$$
+
+### **Reconstruction Term**
+- **Goal**: Maximize the likelhood of the real image $u$ given the latent $z$.
+- **Action**: We want latent code $z$ to be very specific and distinct for every image, so it can reconstruct details perfectly. Ideally, it wants $q(z \mid u)$ to be a Dirac delta (point mass) exactly at the perfect code.
+- **Effect**: Pushing the variance $\sigma^2 \to 0$.
+
+1. The Geometric Interpretation (MSE)
+    the reconstruction loss is almost always Mean Squared Error (MSE):
+    $$
+    \text{Loss} = \| u - \hat{u} \|^2 = \sum (u_i - \hat{u}_i)^2
+    $$
+    Interpretation: "Minimize the physical distance between the pixel values of the original image $u$ and the generated image $\hat{u}$.", pulling the "Arrow" ($\hat{u}$) closer to the "Target" ($u$) in Euclidean space.
+2. The Probabilistic Interpretation (Log-Likelihood)
+    We assumed the likelihood is a Gaussian with fixed variance $\sigma=1$:
+    $$
+    p_\theta(u \mid z) = \frac{1}{\sqrt{2\pi}} e^{-\frac{1}{2} (u - \hat{u})^2}
+    $$
+    If we take the Logarithm of this (which we do for Maximum Likelihood Estimation):
+    $$
+    \log p_\theta(u \mid z) = \underbrace{\log \left( \frac{1}{\sqrt{2\pi}} \right)}_{\text{Constant}} - \underbrace{\frac{1}{2} (u - \hat{u})^2}_{\text{Proportional to -MSE}}
+    $$
+3. The Equivalence$$\text{Maximizing Log-Likelihood} \equiv \text{Minimizing MSE}$$So, when we say "Maximize the probability of the image," we are literally saying "Minimize the pixel distance between the input and the output."
+
+The expansion of the expectation term into its integral form:
+$$
+\mathbb{E}_{z \sim q_{\phi}(z \mid u)} [\log p_\theta(u \mid z)] = \int_{-\infty}^{\infty} q_{\phi}(z \mid u) \log p_\theta(u \mid z) \, dz
+$$
+
+- The Weight ($q_{\phi}(z \mid u)$): This is the probability density of the latent code $z$ predicted by the Encoder. It tells us how much "weight" to assign to specific regions of the latent space (e.g., the region around the mean $\mu$).
+- The Score ($\log p_\theta(u \mid z)$): This is the reconstruction log-likelihood (the negative MSE) for a specific $z$.
+- The Operation ($\int$): We are summing up the reconstruction scores for every possible latent code, weighted by how likely the Encoder thinks that code is.
+This integral is effectively calculating the **weighted average reconstruction quality** over the entire "cloud" of latent codes predicted by the Encoder.
+
+### **Regularization Term**
+
+- **Goal**: Minimize the divergence between the encoder's output $q(z \mid u)$ and the prior $p(z) = \mathcal{N}(0, I).
+- **Action**: We want the latent codes to be fuzzy, overlapping standard Gaussians, forbitting the model from cheating by memorizing specific points.
+- **Effect**: Pushing mean $\mu \to 0$ and variance $\sigma^2 \to 1$.
 
 ### **Approximate Posterior v.s. True Posterior**
+
+**Indexing**: we index **True Posterior** $p(z \mid u)$ with $\theta$ because the 'Truth' is defined by the **Decoder**. As we update $\theta$, we change the mapping from latent to image. 
+- The Target ($u$): The Real Image. (Fixed).
+- The Archer ($\theta$): The Decoder.
+- The Shot ($z$): The latent code provided by the Encoder.
+- The Arrow Landing Spot ($\hat{u}$): The Reconstruction.
+- The Likelihood $p_\theta(u \mid z)$ is the Score. It measures the distance between the Arrow ($\hat{u}$) and the Target ($u$).$$\text{Log Likelihood} \propto - \| \text{Target}(u) - \text{Arrow}(\hat{u}) \|^2$$
+So, $p_\theta(u \mid z)$ is the value we maximize. We do this by moving the Arrow ($\hat{u}$) closer to the Target ($u$). $\hat u = f_\theta(z), u \sim \mathcal{N}(\hat u, I)$, i.e. $p_\theta(u \mid z) = p(u \mid \psi) = \mathcal{N}(u; \hat u, \sigma^2I)$
+
 **Goal**: Show that minimizing the KL divergence between the Approximate Posterior $q_\phi(z \mid u)$ and the True Posterior $p_\theta(z \mid u)$ is equivalent to maximizing the ELBO (Evidence Lower Bound).
+
 $$\begin{align}
 \mathrm{KL}\big(q_\phi(z \mid u) \,\|\, p_\theta(z \mid u)\big) &= \mathbb{E}_{z \sim q_\phi} \left[ \log \frac{q_\phi(z \mid u)}{p_\theta(z \mid u)} \right] \\
 &= \mathbb{E}_{z \sim q_\phi} [\log q_\phi(z \mid u)] - \mathbb{E}_{z \sim q_\phi} [\log p_\theta(z \mid u)]
@@ -207,10 +271,17 @@ $$\begin{align}
 Thus, the relationship is:
 $$\log p_\theta(u) = \underbrace{\mathbb{E}_{z \sim q_\phi} [\log p_\theta(u \mid z)] - \mathrm{KL}\big(q_\phi(z \mid u) \,\|\, p(z)\big)}_{\text{ELBO}(\theta, \phi)} + \underbrace{\mathrm{KL}\big(q_\phi(z \mid u) \,\|\, p_\theta(z \mid u)\big)}_{\ge 0}$$
 
+Since $\log p_\theta(u)$, the **evidence**, is **fixed** for a given data point, maximizing ELBO is mathematically equivalent to minimizing the divergence between approxmiate posterior and the true posterior
+$$\begin{align}
+\phi^*, \theta^* &= \arg \max_{\phi, \theta} \text{ELBO}(u) \\
+&= \arg \max_{\phi, \theta} \left( \mathbb{E}_{z \sim q_\phi} [\log p_\theta(u \mid z)] - \mathrm{KL}\big(q_\phi(z \mid u) \,\|\, p(z)\big) \right)
+\end{align}$$
 
+The first term is **reconstruction**, maximizing likelihood of data given latent, and the second term is **regularization**, forcing approximate posterioir $q$ to be close to prior $p(z)$
 
 
 ## **Inference (The Generative Loop)**
+
 **Goal**: Generate new data. The Encoder is deleted.
 1. **Input** ($z$): We need a seed.
     - Sample $z \sim \mathcal{N}(0, I)$ (The Prior).
