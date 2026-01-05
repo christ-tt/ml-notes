@@ -410,13 +410,40 @@ $$
 \begin{align}
 \text{ELBO} &= \mathbb{E}_{q} \left[ \log \frac{p(x, z_{1:T})}{q(z_{1:T} \mid x)} \right] \\
 \frac{p(x, z_{1:T})}{q(z_{1:T} \mid x)} &= \frac{p(x \mid z_1) \, p(z_1 \mid z_2) \dots p(z_{T-1} \mid z_T) \, p(z_T)}{q(z_1 \mid x) \, q(z_2 \mid z_1) \dots q(z_T \mid z_{T-1})} \\
-\text{ELBO} &= \underbrace{\mathbb{E}_q [\log p(x \mid z_1)]}_{\text{Reconstruction}} + \underbrace{\sum_{t=2}^{T} \mathbb{E}_q \left[ \log \frac{p(z_{t-1} \mid z_t)}{q(z_{t-1} \mid z_{t-2}?)} \right]}_{\text{Transition Terms}} - \underbrace{D_{KL}(q(z_T \mid z_{T-1}) \| p(z_T))}_{\text{Top-Level Prior}} \\
+\text{ELBO} &= \underbrace{\mathbb{E}_q [\log p(x \mid z_1)]}_{\text{Reconstruction}} + \underbrace{\sum_{t=2}^{T} \mathbb{E}_q \left[ \log \frac{p(z_{t-1} \mid z_t)}{q(z_{t-1} \mid z_{t-2})} \right]}_{\text{Transition Terms}} - \underbrace{D_{KL}(q(z_T \mid z_{T-1}) \| p(z_T))}_{\text{Top-Level Prior}} \\
 \end{align}
 $$
+where $z_0 = x$.
+Look at the indices in the middle term.
+- The Decoder moves down: $p(z_{t-1} \mid z_t)$.
+- The Encoder moves up: $q(z_t \mid z_{t-1})$.
+- The Mismatch: Unlike Vanilla VAE, the distributions in the middle don't perfectly pair up into neat KL divergence terms like $KL(q \| p)$ because they are conditioned on different things. This makes standard HVAEs tricky to optimize.
 
+### **Diffusion Trick - Inverting Encoder**
+To make the math clean (and to get to Diffusion Models), we perform a slight trick. We rewrite the ELBO using Bayes' rule on the Posterior side.
 
+Instead of defining $q(z_t \mid z_{t-1})$ (Bottom-Up), let's imagine we could define the Reverse Posterior $q(z_{t-1} \mid z_t, x)$.
+- Idea: "Given that I'm at the noisy state $z_t$, and I know the original image $x$, what was the previous step $z_{t-1}$?"
 
-### **3. The Mathematical Bridge to Diffusion**
+**Note**: The ELBO Term:
+$$
+\log \frac{p(z_{t-1} \mid z_t)}{q(z_t \mid z_{t-1})}
+$$
+We **can't** simply negate this to form a KL divergence:
+$$
+- \log \frac{q(z_t \mid z_{t-1})}{p(z_{t-1} \mid z_t)},
+$$
+which is NOT a valid KL Divergence. KL Divergence $D_{KL}(A \| B)$ requires $A$ and $B$ to be distributions over the same variable.Here, $q$ gives probabilities for $z_t$, but $p$ gives probabilities for $z_{t-1}$.
+
+Thus, we **invert** the encoder. To compare the Encoder to the Decoder, we must force the Encoder to *look "backward"* (from $t$ to $t-1$), just like the Decoder. We want to convert the forward rule $q(z_t \mid z_{t-1})$ into a reverse posterior $q(z_{t-1} \mid z_t)$.
+
+Using Bayes' Rule:
+$$q(z_{t-1} \mid z_t) = \frac{q(z_t \mid z_{t-1}) \, q(z_{t-1})}{q(z_t)}$$
+
+If we rewrite the ELBO using this formulation (which is standard in Diffusion math), the sum becomes a beautiful chain of KL divergences:
+$$\text{ELBO} = \underbrace{\mathbb{E}[\log p(x \mid z_1)]}_{\text{Reconstruction}} - \sum_{t=2}^T \underbrace{D_{KL}\Big( q(z_{t-1} \mid z_t, x) \,\|\, p(z_{t-1} \mid z_t) \Big)}_{\text{Denoising Matching}} - \underbrace{D_{KL}(q(z_T \mid x) \| p(z_T))}_{\text{Prior Matching}}$$
+
+### **The Mathematical Bridge to Diffusion**
 
 This is the critical realization that leads to Diffusion Models.
 
@@ -441,7 +468,7 @@ Imagine a specific type of HVAE with **three constraints**:
 | **Decoder $p(x \mid z)$** | Learned Neural Network | A Neural Network (U-Net)
 | **Latent Meaning** | Abstract Features (Edges, Shapes) | Noisy Images (Pixel soup) |
 
-### **4. Summary: The Mental Shift**
+## **VAE to Diffusion: The Mental Shift**
 
 * **HVAE:** "I will learn a smart hierarchy of features to compress the image."
 * **Diffusion:** "I will define the 'encoding' simply as destroying the image with noise layer-by-layer. Then, I will treat the 'decoding' as a massive HVAE that learns to reverse this destruction."
