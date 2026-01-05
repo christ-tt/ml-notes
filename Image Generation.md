@@ -551,17 +551,178 @@ $$
 
 ### **Linear Scheduler**
 
+Defines how much noise is added at every single step $t$. We define a start value $\beta_1$ and an end value $\beta_T$. The scheduler calculates the variance $\beta$ for every step $t$ using a simple line equation
+$$
+\beta_t = \beta_1 + \frac{t}{T}(\beta_T - \beta_1)
+$$
+Standard values: we use $\beta_1 = 0.0001$ as step 1 adds tiny noise, and $\beta_T = 0.02$ adding roughly 200 times more noise.
+
+**Motivation**: if we use constant noise, either it will be 
+- too aggressive: perhaps the image would turn to pure static by step 10, and the remaining 990 steps would just be mixing static with static, wasting compute
+- too weak: at step 1000, the image would still be visible ghostly, breaking the assumption that $x_T$ is pure Gaussian noise.
+
+Linear schedule ensures a smooth, gradual decay of the **Signal-to-Noise Ratio (SNR)**. 
+-
 ---
 
 ## **Reverse Process - Learned Decoder**
 
+Since the forward process destroys information, the reverse step $q(x_{t-1} \mid x_t)$ is intractable at inference time as we don't know which specific $x_0$ the noise came from; but during training, we can still condition it on $x_0$. 
+We train a neural network $p_\theta$ to approximate $q(x_{t-1} \mid x_t)$.
+$$
+p_\theta(x_{t-1} \mid x_t) = \mathcal{N}(x_{t-1}; \mu_\theta(x_t, t), \Sigma_\theta(x_t, t))
+$$
+- Input: Noisy image $x_t$, time step $t$;
+- Output: Predicted mean $\mu_\theta$. (Variance $\Sigma_\theta$ is typically fixed to $\beta_t$)
 
 
+---
+
+## **Objective - Loss Function**
+
+### **A. Teacher vs. Student**
+- The Teacher (Reverse Posterior): $q(x_{t-1} \mid x_t, x_0)$.
+    - This distribution knows the ground truth $x_0$ and calculates the exact step required to move from $x_t$ towards $x_0$.
+- The Student (Model): $p_\theta(x_{t-1} \mid x_t)$.
+    - This network only sees the noise $x_t$ and must guess the direction.
+
+### **B. The Simplified Loss**
+Matching the means of these distributions is mathematically equivalent to predicting the noise $\epsilon$ that was added.
+$$\mathcal{L}_{\text{simple}} = \mathbb{E}_{t, x_0, \epsilon} \left[ \| \epsilon - \epsilon_\theta(\underbrace{\sqrt{\bar{\alpha}_t} x_0 + \sqrt{1-\bar{\alpha}_t}\epsilon}_{\text{Noisy Input } x_t}, t) \|^2 \right]$$Task: "Here is a noisy image. Tell me what the noise looks like."
 
 
+---
+
+## **The Diffusion Transformer (DiT)**
+
+While U-Nets were the standard, modern architectures (Sora, SD3) use Vision Transformers (DiT) for better scaling.
+
+**Workflow**
+1. Patchify (Tokenizer):
+    - The noisy input $x_t$ (e.g., $32 \times 32 \times 4$ latent) is chopped into patches (e.g., $2 \times 2$), resulting in a sequence of tokens.
+2. Context Injection (adaLN):
+    - Standard ViTs use LayerNorm. DiT uses Adaptive Layer Norm (adaLN).
+    - The Time $t$ and Class/Text Label $c$ are embedded into a vector.
+    - This vector predicts the **Scale** ($\gamma$) and **Shift** ($\beta$) parameters for the normalization layers inside the transformer block.
+    - *Effect*: The time step globally modulates the activations of the network (e.g., "Shift activations heavily for high noise").
+3. Transformer Blocks:
+    - Standard Multi-Head Self-Attention (Global context) and Pointwise MLPs.
+4. Un-Patchify:
+    - Linear projection maps tokens back to the original pixel/latent space to output the predicted noise $\epsilon_\theta$.
+
+**DiT vs. U-Net**
+
+| Feature | U-Net | DiT (Transformer) |
+| --- | --- | --- |
+| **Inductive Bias** | **Local (CNN)**. Great for textures/edges | **GLobal (Attention)**. Better for sematntic structure. |
+| **Conditioning** | Added to residual blocks via Cross-Attention | Modulates LayerNorm params (adaLN) |
+| **Scaling** | Difficult to scale depth/width | Predictable Scaling Laws (compute $\propto$ performance) |
+
+---
+
+## **Inference - Sampling Algorithm**
+
+To generate an image, we start from pure noise and reverse the chain using the trained model.
+
+**DDPM Sampling**:
+1. Start: Sample $x_T \sim \mathcal{N}(0, I)$.
+2. Loop: For $t = T, T-1, \dots, 1$:
+    - Use DiT to Predict Noise: 
+        - input time step $t$ and current noisy image $x_t$
+        - DiT engine patchify, embed context $(\gamma, \beta)$ for adaLN
+        - Outputs: $\hat \epsilon = \epsilon_\theta(x_t, t)$.
+    - Denoise (Remove predicted noise): 
+    $$
+    \mu_t = \frac{1}{\sqrt{\alpha_t}}\left(x_t - \frac{1-\alpha_t}{\sqrt{1-\bar \alpha_t}}\hat\epsilon\right)
+    $$
+    - Add Langevin Noise: (Crucial for correct texture/diversity). 
+    $$
+    x_{t-1} = \mu_t + \sigma_t z, \qquad z \sim \mathcal{N}(0, I)
+    $$
+3. End: $x_0$ is the generated image.
+
+*Note*: Model samplers (DPM-Solver) treat this loop as an ODE and can skip steps, reducing inference from 1000 steps to $\sim$ 20.
+
+### **Advanced Sampling: ODE / SDE**
+
+#### **The "Probability Flow" ODE**
+
+In the standard view (DDPM), we think of the reverse process as a random walk: "Step, add noise, step, add noise."However, Song et al. (2021) proved a breakthrough theorem: For every diffusion SDE (Stochastic), there exists a corresponding ODE (Deterministic) that results in the exact same probability distribution at every time $t$.The VisualizationImagine a cloud of particles drifting and diffusing.SDE (The Drunk Walk): Pick one particle. It jitters around randomly. It eventually hits the target distribution.ODE (The Smooth Stream): Imagine the "average flow" of the particles. If you trace a line that follows the density gradient of the cloud, you get a smooth, non-random curve.Why does this matter?Random paths are jagged. To trace a jagged line accurately, you need tiny steps (1,000 steps).Deterministic paths are smooth. To trace a smooth curve, you can take huge steps (20 steps).11.2. How we "Skip Steps" (Numerical Integration)Once we define the process as an ODE:$$\frac{dx}{dt} = f(x, t)$$Our goal is to find $x(0)$ given $x(T)$. This is exactly what ODE Solvers do.Method 1: Euler Method (DDPM / Ancestral)This is the naive approach.Logic: "I am at $t=1000$. The slope points that way. I will take a tiny step."Math: $x_{t-1} = x_t - \text{slope} \times \Delta t$.Problem: It assumes the curve is a straight line. Since the diffusion curve is curved, taking a big step creates huge "Truncation Error." You fall off the curve.Result: You assume you need $\Delta t = 0.001$ (1,000 steps).Method 2: Higher-Order Solvers (Heun, Runge-Kutta, DPM-Solver)These are "smart" solvers.Logic: "I am at $t=1000$. Let me look at the slope here, AND estimate the slope at $t=950$, AND check the curvature."Mechanism (Taylor Expansion): They use derivatives of the gradient to predict how the curve bends.Result: They can accurately predict where the curve will be in a massive jump (e.g., $t=1000 \to t=950$).Impact: We can reduce inference from 1,000 steps to 10-25 steps with almost no loss in quality.11.3. Why use SDE Solvers? (Stochastic Differential Equations)If ODEs are faster (20 steps), why do we sometimes still use SDEs (adding noise during inference)?1. Error CorrectionThe ODE path is a tightrope.If the neural network makes a slight error in prediction at step $t=900$, the ODE solver essentially "falls off the tightrope." It drifts into a weird region of latent space and creates artifacts.SDEs are forgiving. By adding random noise at each step ($+ \sigma z$), we effectively "shake" the state back into the high-probability manifold. It corrects errors.2. Quality & Texture (The "Blur" Problem)ODE: Because it follows the mean path, it tends to result in slightly "averaged" or "conservative" images.SDE: The added noise injects high-frequency details (grain/texture). SDE-generated images often look sharper and more realistic, even if they take longer to generate.Summary:Use ODE (e.g., DDIM, DPM-Solver): When you need speed (User facing apps, <2 seconds).Use SDE (e.g., Euler Ancestral): When you need maximum quality/creativity and have time.11.4. Clarification: PDE SolversYou asked about Partial Differential Equations (PDEs).Technically, we do not use PDE solvers for inference. Here is the distinction:The PDE (Fokker-Planck Equation): This describes how the entire probability distribution $p(x)$ evolves over time. To solve this, you would need to calculate the density for every possible image in the universe simultaneously. This is computationally impossible (The "Curse of Dimensionality").The SDE/ODE (The Sample): We solve the equation for a single particle (one image). This is a "Characteristic Curve" of the PDE.Confusion Point:Sometimes researchers use the term "PDE" loosely when discussing Consistency Models or Distillation. These techniques try to train a network to "learn the solution" of the ODE directly, mapping $x_T \to x_0$ in a single step (conceptually solving the integral of the differential equation instantly).
+---
+
+## **Text Guided Generation**
+
+We use a backbone pre-trained language model to get text embedding `(batch_size, seq_len, dim_text)`
+
+### **U-Net: Cross-Attention**
+We use **cross-attention** layers, where **Query** = image features, and **Key/Value** is the text features;
+
+Let's look at a specific layer inside the U-Net (e.g., the middle block).
+1. Image Input (Query Source):
+    - The U-Net is processing the noisy image feature map.
+    - Shape: [B, Channels, H, W] (e.g., [1, 1280, 16, 16]).
+    - Flatten: We flatten the spatial dimensions to make it a sequence.
+    - $Q$ (Image): [B, 256, 1280] (where $256 = 16 \times 16$ pixels).
+2. Text Input (Key/Value Source):
+    - The frozen text embeddings from CLIP.
+    - $K, V$ (Text): [B, 77, 768] (where $77$ is token count).
+3. The Interaction:
+    - We project $Q$ to dimension $d_{head}$ and $K, V$ to dimension $d_{head}$.
+    - Attention Map ($Q \times K^T$):
+        - Math: [B, 256, d] @ [B, d, 77] $\to$ [B, 256, 77].
+        - Meaning: For every single pixel (1 of 256), the model calculates how relevant every single word (1 of 77) is.
+        - Example: The pixel corresponding to the cat's eye will attend heavily to the word "cat" and "cyberpunk."
+4. Output:
+    - We multiply the map by $V$ (Text).
+    - Result: [B, 256, 1280].
+    - Reshape: Back to image [B, 1280, 16, 16].
+**Summary**: The image pixels "query" the text prompt to retrieve relevant details.
+
+### **DiT**
+
+Used in Sora, Stable Diffusion 3. Transformers offer more flexible ways to inject conditioning.
+
+#### Method 1: Adaptive Layer Norm (adaLN)
+
+This is used for **Global Conditioning** (e.g., Time $t$, Class Label, or a Pooled Text Vector).
+1. Input:
+    - Noisy Image Patches (Main Stream): [B, N_patches, D_model].
+    - Conditioning Vector $c$: A single vector [B, D_cond] (e.g., Time embedding + Pooled Text embedding).
+2. Mechanism:
+    - We do not just add $c$. We use an MLP (Regressor) to predict the Scale ($\gamma$) and Shift ($\beta$) for the LayerNorm.
+    - $MLP(c) \to [\gamma, \beta]$.
+    - $\text{Norm}(x) = \gamma(c) \cdot \frac{x - \mu}{\sigma} + \beta(c)$.
+3. Effect: The text/time strictly controls the "gain" and "bias" of the entire network. If the prompt is "Night," the $\beta$ shift might darken all activations globally.
+
+#### Method 2: Cross-Attention (Hybrid)
+
+Similar to U-Net. We can interleave "Self-Attention" blocks (Image-to-Image) with "Cross-Attention" blocks (Image-to-Text) inside the Transformer.
+- Stable Diffusion 3 uses this. It has a "MM-DiT" (Multimodal DiT) where Image and Text tokens pass through their own transformer streams but exchange information via attention.
+
+#### Method 3: Token Appending (Pure Transformer)
+
+This is the simplest, "ChatGPT-like" approach.
+0. Concept: Treat Text and Image as just "tokens" in a long sequence.
+1. Inputs:
+    - Image Patches: $N_{img}$ tokens (e.g., 256 tokens).
+    - Text Tokens: $N_{txt}$ tokens (e.g., 77 tokens).
+2. Operation:
+    - Get image embedding from certain encoder, and text embedding from the `lm_head`.
+    - Simply Concatenate them: Sequence Length $= 256 + 77 = 333$.
+    - Feed the whole [B, 333, D_model] tensor into a standard Transformer.
+3. Self-Attention:
+    - The Attention matrix is [333, 333].
+    - Image tokens can attend to Text tokens (and vice versa) naturally.
 
 
+### **Discrete Autoregressive Transformers (VQ-Modeling)**
 
+Used by: DALL-E 1, VQ-GAN, Parti, MUSE, VQ-Diffusion.
+
+- Tokenizer (VQ-VAE): train a separate model (ViT + Quantizer) to compress the image into a grid of Integers (e.g., [45, 992, 101, ...]).
+- Vocabulary: a "Codebook" (e.g., 8192 possible image tokens).
+- Embedding: Now we can use a standard Embedding Table, just like in NLP. Token #45 looks up vector #45.
+- Generation: You generally use an Autoregressive Transformer (like GPT) to predict the next token, or a Masked Transformer (like BERT) to fill in missing tokens.
 
 
 
