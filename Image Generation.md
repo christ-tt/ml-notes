@@ -152,10 +152,6 @@ The actual dimensionality of the data manifold may be (and generally will be) gr
 Even if we capture the dimensionality of the principal manifold perfectly, there will almost alwasy be some variation
 
 
-
-
-
-
 # **Variational Auto Encoder**
 
 ## **Training (The Encoder-Decoder Loop)**
@@ -375,8 +371,10 @@ The first term is **reconstruction**, maximizing likelihood of data given latent
     - Conceptually identical to a CVAE, where label $c$ is replaced by a rich vector representation from a ViT.
 
 
+---
 
-# **Hierarchical VAE**
+# **Hierarchical VAE $\to$ Diffusion**
+
 To understand Diffusion, we don't need to learn a "new" algorithm; we just need to take a **Hierarchical VAE (HVAE)** and take it to its logical extreme.
 
 An HVAE is simply a VAE that doesn't stop at one layer of latent variables. Instead of a single compression step, it performs a sequence of them.
@@ -406,6 +404,7 @@ $$p(x, z_{1:T}) = p(z_T) \times p(z_{T-1} \mid z_T) \times \dots \times p(x \mid
 ---
 
 ## **ELBO**
+
 $$
 \begin{align}
 \text{ELBO} &= \mathbb{E}_{q} \left[ \log \frac{p(x, z_{1:T})}{q(z_{1:T} \mid x)} \right] \\
@@ -419,51 +418,94 @@ Look at the indices in the middle term.
 - The Encoder moves up: $q(z_t \mid z_{t-1})$.
 - The Mismatch: Unlike Vanilla VAE, the distributions in the middle don't perfectly pair up into neat KL divergence terms like $KL(q \| p)$ because they are conditioned on different things. This makes standard HVAEs tricky to optimize.
 
-### **Diffusion Trick - Inverting Encoder**
-To make the math clean (and to get to Diffusion Models), we perform a slight trick. We rewrite the ELBO using Bayes' rule on the Posterior side.
+---
 
-Instead of defining $q(z_t \mid z_{t-1})$ (Bottom-Up), let's imagine we could define the Reverse Posterior $q(z_{t-1} \mid z_t, x)$.
-- Idea: "Given that I'm at the noisy state $z_t$, and I know the original image $x$, what was the previous step $z_{t-1}$?"
+## **Diffusion Trick - Inverting Encoder**
 
-**Note**: The ELBO Term:
+Note that, given the ELBO Term:
 $$
 \log \frac{p(z_{t-1} \mid z_t)}{q(z_t \mid z_{t-1})}
 $$
 We **can't** simply negate this to form a KL divergence:
 $$
-- \log \frac{q(z_t \mid z_{t-1})}{p(z_{t-1} \mid z_t)},
+- \log \frac{q(z_t \mid z_{t-1})}{p(z_{t-1} \mid z_t)}.
 $$
-which is NOT a valid KL Divergence. KL Divergence $D_{KL}(A \| B)$ requires $A$ and $B$ to be distributions over the same variable.Here, $q$ gives probabilities for $z_t$, but $p$ gives probabilities for $z_{t-1}$.
+This is NOT a valid KL Divergence. KL Divergence $D_{KL}(A \| B)$ requires $A$ and $B$ to be distributions over the same variable.Here, $q$ gives probabilities for $z_t$, but $p$ gives probabilities for $z_{t-1}$.
 
-Thus, we **invert** the encoder. To compare the Encoder to the Decoder, we must force the Encoder to *look "backward"* (from $t$ to $t-1$), just like the Decoder. We want to convert the forward rule $q(z_t \mid z_{t-1})$ into a reverse posterior $q(z_{t-1} \mid z_t)$.
+To make the math clean (and to unlock Diffusion Models), we perform a trick: rewritting the ELBO using Bayes' rule on the Posterior side, so that we can compare the encoder directly to the decoder. To do this, we must force the Encoder to *look "backward"* (from $t$ to $t-1$), just like decoder.
 
-Using Bayes' Rule:
+**Goal**: Convert the forward rule $q(z_t \mid z_{t-1})$ (Bottom-Up) into a Reverse Posterior $q(z_{t-1} \mid z_t, x)$.
+- Idea: "Given that I'm at the noisy state $z_t$, and I know the original image $x$, what was the previous step $z_{t-1}$?"
+
+**Derivation**: Using Bayes' Rule:
 $$q(z_{t-1} \mid z_t) = \frac{q(z_t \mid z_{t-1}) \, q(z_{t-1})}{q(z_t)}$$
 
-Here is where the $x$ (or $z_0$) comes in.The terms $q(z_{t-1})$ and $q(z_t)$ are marginal probabilities. In a Markov chain starting from data $x$, these marginals depend entirely on the starting point $x$.
+Why condition on $x$? The terms $q(z_{t-1})$ and $q(z_t)$ are marginal probabilities. In a Markov chain starting from data $x$, these marginals depend entirely on the starting point $x$.
 - Without $x$, $q(z_t)$ is a mixture over the entire dataset (very complex).
 - With $x$, the math becomes solvable (Gaussian).
-$$q(z_{t-1} \mid z_t, x) = \frac{q(z_t \mid z_{t-1}) \, q(z_{t-1} \mid x)}{q(z_t \mid x)}$$
+$$
+\begin{align}
+q(z_{t-1} \mid z_t, x) &= \frac{q(z_{t-1}, z_t, x)}{q(z_t, x)} \\
+&= \frac{q(z_t \mid z_{t-1}, x)q(z_{t-1}, x)}{q(z_t \mid x)q(x)} \\
+&= \frac{q(z_t \mid z_{t-1}) \, q(z_{t-1} \mid x)}{q(z_t \mid x)}
+\end{align}
+$$
 
-If we rewrite the ELBO using this formulation (which is standard in Diffusion math), the sum becomes a beautiful chain of KL divergences:
+We defined the forward process as **Gaussian Noise**:
+1. $q(z_t \mid z_{t-1})$ is Guassian (Step definition).
+2. $q(z_t \mid x)$ is Gaussian (Sum of Gaussians is Gaussian).
+3. $q(z_{t-1} \mid x)$ is Gaussian.
+Since we are dividing/multiplying Gaussians, the result $q(z_{t-1} \mid z_t, x)$ is also a Gaussian.
+
+This allows us to write the ELBO term as a valid KL Divergence:$$D_{KL} \Big( \underbrace{q(z_{t-1} \mid z_t, x)}_{\text{Encoder Reverse (Truth)}} \;\|\; \underbrace{p_\theta(z_{t-1} \mid z_t)}_{\text{Decoder Reverse (Prediction)}} \Big)$$
+
+Now we can rewrite the ELBO using this formulation (which is standard in Diffusion math), the sum becomes a beautiful chain of KL divergences:
 $$\text{ELBO} = \underbrace{\mathbb{E}[\log p(x \mid z_1)]}_{\text{Reconstruction}} - \sum_{t=2}^T \underbrace{D_{KL}\Big( q(z_{t-1} \mid z_t, x) \,\|\, p(z_{t-1} \mid z_t) \Big)}_{\text{Denoising Matching}} - \underbrace{D_{KL}(q(z_T \mid x) \| p(z_T))}_{\text{Prior Matching}}$$
 
-### **The Mathematical Bridge to Diffusion**
+This equation is the foundation of Diffusion Models. It says: "Make your learned reverse step $p$ match the true mathematical reverse step $q$."
 
-This is the critical realization that leads to Diffusion Models.
+#### **More on Motivation of Revsered Posterior - Compute Persepective**
+Calculating $q(z_{t-1} \mid z_t)$ is normally impossible.
+Think about a generic noisy image $z_t$ (pure static).
+- Question: "What was the previous step $z_{t-1}$?"
+- Answer: "I have no idea. It could have been any image in the universe that got corrupted."
+
+Mathematically, to solve this, you would have to **integrate over all possible images** in the universe:
+$$
+q(z_{t-1} \mid z_t) = \int q(z_{t-1} \mid z_t, x) \, p(x) \, dx
+$$
+This is intractable. We cannot sum over all possible photos.
+
+**Solution**: Conditioning on $x_0$.
+We know the original image $x_0$ (the ground truth from our dataset)
+If I tell you:
+    - Current State: "This specific noisy blob."
+    - Destination: "This specific photo of a Cat."
+Now, the question "Where did I come from?" has a specific, calculable answer. We don't need to consider all images, just the **path** from this Cat to this Noise.
+This makes the Reverse Posterior Tractable. 
+
+Since our noise process is Gaussian, this specific path is just a weighted average of the current noise and the original image.
+
+---
+
+### **VAE to Diffusion**
 
 Imagine a specific type of HVAE with **three constraints**:
 
 1. **Infinite Depth:** We add more and more layers ($T\to \infty$).
 2. **Same Dimension:** Every latent layer $z_t$  has the **same shape** as the image $x$ (no compression in size, only in information).
-3. **Fixed Encoder:** This is the kicker.
-* In HVAE, we *learn* the Encoder $q_\phi$.
-* In this special case, we **fix** the Encoder to be a simple, non-learnable noise injector.
-* $q(z_t \mid z_{t-1}) = \mathcal{N}(z_t; \sqrt{1-\beta} z_{t-1}, \beta I)$. (Just adding Gaussian noise).
+3. **Fixed Encoder:**: 
+    * In HVAE, we *learn* the Encoder $q_\phi$.
+    * In this special case, we **fix** the Encoder to be a simple, non-learnable noise injector.
+    * $q(z_t \mid z_{t-1}) = \mathcal{N}(z_t; \sqrt{1-\beta} z_{t-1}, \beta I)$. (Just adding Gaussian noise).
 
-**If you do this, the HVAE becomes a Diffusion Model.**
+**Then, the HVAE becomes a Diffusion Model.** Mentally,
 
-#### **Comparison Table**
+- **HVAE:** "I will learn a smart hierarchy of features to compress the image."
+- **Diffusion:** "I will define the 'encoding' simply as destroying the image with noise layer-by-layer. Then, I will treat the 'decoding' as a massive HVAE that learns to reverse this destruction."
+
+So, mathematically, a Diffusion model **is** an HVAE where the inference path is fixed to be a noise process, and we only train the generative path to undo it.
+
 
 | Feature | **Standard HVAE** | **Diffusion Model (VDM)** |
 | --- | --- | --- |
@@ -473,33 +515,36 @@ Imagine a specific type of HVAE with **three constraints**:
 | **Decoder $p(x \mid z)$** | Learned Neural Network | A Neural Network (U-Net)
 | **Latent Meaning** | Abstract Features (Edges, Shapes) | Noisy Images (Pixel soup) |
 
-## **VAE to Diffusion: The Mental Shift**
 
-* **HVAE:** "I will learn a smart hierarchy of features to compress the image."
-* **Diffusion:** "I will define the 'encoding' simply as destroying the image with noise layer-by-layer. Then, I will treat the 'decoding' as a massive HVAE that learns to reverse this destruction."
+---
 
-So, mathematically, a Diffusion model **is** an HVAE where the inference path is fixed to be a noise process, and we only train the generative path to undo it.
+# **Diffusion (DDPM)**
+
+A Diffusion Model is a **Parameterized Markov Chain** trained using variational inference. It consists of two processes:
+1. Forward Process (Diffusion): A fixed, linear chain that gradually destroys structure in data $x_0$ by adding noise until it becomes pure Gaussian noise $x_T$.
+2. Reverse Process (Denoising): A learned chain that attempts to invert the diffusion process, restoring structure from noise.
+
+Key **Assumptions**:
+1. Markov Property: The future state depends only on the current state.
+2. Gaussian Transitions: The noise added at each step is Gaussian. This allows us to sum variances easily.
+3. Small Steps ($T \to \infty$): The noise added at each step is small enough that the reverse distribution $p(x_{t-1}|x_t)$ can also be approximated as Gaussian.
 
 
-## Questions
 
-- For image embedding models (like ViT), or in general for all embedding models (like using BERT for text embeddings, or even LLM for word embeddings), are we essentially using the same ideas for Auto-Encoders: that all data lie in the smaller manifold compared to the ambient space? Like a compression, we enforce the representation, our 'encoded' way of input from the original, raw input, will be better suited for down-stream tasks, like adding a LM head or MLP for certain classification work, where we then assume a certain (categorical) distribution?
 
-- Following this question, even we name 'intermediate representation' as part of the whole model, can we effectively assume encoder and decoders are decoupled? Where the embedding of the encoder can be used, or easily fine-tuned, for other down-stream tasks? Does this apply to AE, or VAE's encoder and decoder as well?
 
-- Can we unify the way VAE is doing encoding, with how we form our 'stochastic' part of the model? i.e. we are outputing $\psi$ with local parameters for the distribution, whereas in VAE for the latent variables we are essentially outputting mean and var for a guassian distribution? When we say our latent does not follow a specific distribution, we are saying the local parameters themselves? 
 
-- In VAE, we say given the input, we have the latent from the encoder, where it is local parameters of a distribution; can we apply this to ALL the reprensentation / embeddings for other tasks, e.g. language modeling? Instead of output a fixed vector for a word, why don't we follow the latent idea of VAE and train the encoder in a way that it output a parameters of the distribution? Adding the stochastic even on the fixed embedding vectors.  
 
-- Taking a step back, a more fundamental question is, what is the purpose of VAE? In image understanding, we have both text and image input, where the image going to ViT for an embedding, and we also have text embedding from our decoder's embedding table, and then we do certain cross-attention and the decoding part will be 'controlled', (and for image generation as well). For VAE, however, we input an image, and we are output an image as well, there's no explicit control in it, is it? The best we can do is outputting the exact same image? Why we need VAE, or in general, this task at all? How do we add 'control' in the images we are generating?
+---
 
-- When we say why probabilistic embedding is not the default, we say usually we use the mean only. So, with this interpretation, essentially the output embedding vector is still not a point mass, but a distribution parameter? Isn't this contradict to what we were saying? 2. We also say, this is for discriminative tasks. But for generation tasks including LLM itself, why we still don't think it is necessary? 3. Then why this is absolutely necessary for VAE? If ViT and LLaVA can handle 'holes' on the manifold well, why can't VAE? If we switch the decoder to a very powerful transformer based decoder (parameters in terms of hundreds of Billions or even trillion), like modern multi-modal understanding / generation models, then we don't necessarily use latent as both \mu and \sigma? More importantly, the question is why for VAE this is required, but why current VLM (like GLM or Gemma) doesn't use it?
+# **Image v.s. Text Generation, Auto-Regressive v.s. Diffusion**
 
-- The fundamental difference between text generation and image generation, or, auto-regressive way and diffusion way, is the underlying conditional distribution we are assuming? For text generation, given a prompt, we embed it to be (seq_len, dim), and this embedding could be from previous step of the decoder (as we are doing auto-regressive way), then, given our decoder f_\theta, we output a logits and softmax over the whole vocabulary for the next most probable word (which we could do sampling based on top-k, top-p as we are assuing a categorical distribution for next word given prompts). On the other hand, for image generation, where we usually use diffusion way, given a text and a image pair (e.g. text: change the cat in this image to a dog, and image: a picture of a cat on a sofa), we embed the text using lm_head of a decoder, and we embed the image using the ViT, and then, given (seq_len, dim) and (patched / compressed pixels, dim), we do diffusion. Now, what conditional distribution are we assuming? Why here we use a 'variational' way? What are we essentially varying? How do 'latent' and 'noise' come into play?
-
+**WIP**
 This is a sophisticated question that cuts to the core of why these two architectures look so different.
 You are correct: The fundamental difference lies in the Conditional Distribution we assume ($p(y|\psi)$) and the nature of the "Latent" space.
 Here is the breakdown of why Text is "Auto-Regressive Categorical" while Images are "Variational Gaussian," and how the "Variational" math connects them.
+
+
 
 ## 1. **The Tale of Two Distributions**
 The architecture choices follow directly from the mathematical nature of the data.
@@ -561,5 +606,22 @@ This is often the most confusing part. Let's separate them:
         - Inference: We sample noise to kickstart the generation.
     - Analogy: It is the chisel strike. We need randomness to generate new statues; otherwise, we'd carve the exact same statue every time.
 
+
+
+# Part of the Prompts Used for this note
+
+- For image embedding models (like ViT), or in general for all embedding models (like using BERT for text embeddings, or even LLM for word embeddings), are we essentially using the same ideas for Auto-Encoders: that all data lie in the smaller manifold compared to the ambient space? Like a compression, we enforce the representation, our 'encoded' way of input from the original, raw input, will be better suited for down-stream tasks, like adding a LM head or MLP for certain classification work, where we then assume a certain (categorical) distribution?
+
+- Following this question, even we name 'intermediate representation' as part of the whole model, can we effectively assume encoder and decoders are decoupled? Where the embedding of the encoder can be used, or easily fine-tuned, for other down-stream tasks? Does this apply to AE, or VAE's encoder and decoder as well?
+
+- Can we unify the way VAE is doing encoding, with how we form our 'stochastic' part of the model? i.e. we are outputing $\psi$ with local parameters for the distribution, whereas in VAE for the latent variables we are essentially outputting mean and var for a guassian distribution? When we say our latent does not follow a specific distribution, we are saying the local parameters themselves? 
+
+- In VAE, we say given the input, we have the latent from the encoder, where it is local parameters of a distribution; can we apply this to ALL the reprensentation / embeddings for other tasks, e.g. language modeling? Instead of output a fixed vector for a word, why don't we follow the latent idea of VAE and train the encoder in a way that it output a parameters of the distribution? Adding the stochastic even on the fixed embedding vectors.  
+
+- Taking a step back, a more fundamental question is, what is the purpose of VAE? In image understanding, we have both text and image input, where the image going to ViT for an embedding, and we also have text embedding from our decoder's embedding table, and then we do certain cross-attention and the decoding part will be 'controlled', (and for image generation as well). For VAE, however, we input an image, and we are output an image as well, there's no explicit control in it, is it? The best we can do is outputting the exact same image? Why we need VAE, or in general, this task at all? How do we add 'control' in the images we are generating?
+
+- When we say why probabilistic embedding is not the default, we say usually we use the mean only. So, with this interpretation, essentially the output embedding vector is still not a point mass, but a distribution parameter? Isn't this contradict to what we were saying? 2. We also say, this is for discriminative tasks. But for generation tasks including LLM itself, why we still don't think it is necessary? 3. Then why this is absolutely necessary for VAE? If ViT and LLaVA can handle 'holes' on the manifold well, why can't VAE? If we switch the decoder to a very powerful transformer based decoder (parameters in terms of hundreds of Billions or even trillion), like modern multi-modal understanding / generation models, then we don't necessarily use latent as both \mu and \sigma? More importantly, the question is why for VAE this is required, but why current VLM (like GLM or Gemma) doesn't use it?
+
+- The fundamental difference between text generation and image generation, or, auto-regressive way and diffusion way, is the underlying conditional distribution we are assuming? For text generation, given a prompt, we embed it to be (seq_len, dim), and this embedding could be from previous step of the decoder (as we are doing auto-regressive way), then, given our decoder f_\theta, we output a logits and softmax over the whole vocabulary for the next most probable word (which we could do sampling based on top-k, top-p as we are assuing a categorical distribution for next word given prompts). On the other hand, for image generation, where we usually use diffusion way, given a text and a image pair (e.g. text: change the cat in this image to a dog, and image: a picture of a cat on a sofa), we embed the text using lm_head of a decoder, and we embed the image using the ViT, and then, given (seq_len, dim) and (patched / compressed pixels, dim), we do diffusion. Now, what conditional distribution are we assuming? Why here we use a 'variational' way? What are we essentially varying? How do 'latent' and 'noise' come into play?
 
 
