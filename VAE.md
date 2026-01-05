@@ -189,14 +189,24 @@ Even if we capture the dimensionality of the principal manifold perfectly, there
 
 ## **ELBO (Evidence Lower Bound)**
 The ELBO is the objective function we actually maximize when training a VAE.Since we cannot calculate the true probability of the data (the "Evidence" $\log p(u)$) directly because the integral over all latents is intractable, we optimize this proxy instead.
-It is defined as:
+
+From Jensen's Inequility:
+$$\text{ELBO} = \mathbb{E}_{q} \left[ \log \frac{p(x, z)}{q(z \mid x)} \right]$$
+We essentially have,
+$$\begin{align}
+\text{ELBO} &= \mathbb{E}_{q} \left[ \log \frac{p(x \mid z) p(z)}{q(z \mid x)} \right] \\
+&= \mathbb{E}_{q} \left[ \log p(x \mid z) + \log \frac{p(z)}{q(z \mid x)} \right] \quad \text{(Log product rule)} \\
+&= \underbrace{\mathbb{E}_{q} [\log p(x \mid z)]}_{\text{Reconstruction}} + \mathbb{E}_{q} \left[ \log \frac{p(z)}{q(z \mid x)} \right] \\
+\mathbb{E}_{q} \left[ \log \frac{p(z)}{q(z \mid x)} \right] &= - \mathbb{E}_{q} \left[ \log \frac{q(z \mid x)}{p(z)} \right] = - D_{KL}(q(z \mid x) \| p(z))
+\end{align}$$
+Thus we have
 $$
-\text{ELBO} = \underbrace{\mathbb{E}_{z \sim q_\phi(z|u)} [\log p_\theta(u \mid z)]}_{\text{Reconstruction Term}} - \underbrace{D_{KL}(q_\phi(z|u) \,\|\, p(z))}_{\text{Regularization Term}}
+\text{ELBO} = \underbrace{\mathbb{E}_{z \sim q_\phi(z|x)} [\log p_\theta(x \mid z)]}_{\text{Reconstruction Term}} - \underbrace{D_{KL}(q_\phi(z|x) \,\|\, p(z))}_{\text{Regularization Term}}
 $$
 
 The marginal log-likelihood (the Evidence) can be decomposed into: 
 $$
-\log p_\theta(u) = \text{ELBO} + D_{KL}(q_\phi(z|u) \,\|\, p_\theta(z|u))
+\log p_\theta(u) = \text{ELBO} + D_{KL}(q_\phi(z|x) \,\|\, p_\theta(z|x))
 $$
 Since KL Divergence is always non-negative ($D_{KL} \ge 0$), we get the inequality:
 $$  
