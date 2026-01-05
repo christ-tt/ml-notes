@@ -185,7 +185,30 @@ Even if we capture the dimensionality of the principal manifold perfectly, there
     \mathcal{L} = \|x - \hat{x}\|^2 + \beta \cdot D_{KL}(\mathcal{N}(\mu_z, \sigma_z) \| \mathcal{N}(0, I))
     $$
 
-### **ELBO**
+## **ELBO**
+
+### **Approximate Posterior v.s. True Posterior**
+**Goal**: Show that minimizing the KL divergence between the Approximate Posterior $q_\phi(z \mid u)$ and the True Posterior $p_\theta(z \mid u)$ is equivalent to maximizing the ELBO (Evidence Lower Bound).
+$$\begin{align}
+\mathrm{KL}\big(q_\phi(z \mid u) \,\|\, p_\theta(z \mid u)\big) &= \mathbb{E}_{z \sim q_\phi} \left[ \log \frac{q_\phi(z \mid u)}{p_\theta(z \mid u)} \right] \\
+&= \mathbb{E}_{z \sim q_\phi} [\log q_\phi(z \mid u)] - \mathbb{E}_{z \sim q_\phi} [\log p_\theta(z \mid u)]
+\end{align}$$
+Apply Bayes' Rule to the true posterior: $p_\theta(z \mid u) = \frac{p_\theta(u \mid z) p(z)}{p_\theta(u)}$.
+$$
+\begin{align}
+\dots &= \mathbb{E}_{z \sim q_\phi} [\log q_\phi(z \mid u)] - \mathbb{E}_{z \sim q_\phi} \left[ \log \frac{p_\theta(u \mid z) p(z)}{p_\theta(u)} \right] \\
+&= \mathbb{E}_{z \sim q_\phi} [\log q_\phi(z \mid u)] - \mathbb{E}_{z \sim q_\phi} [\log p_\theta(u \mid z)] - \mathbb{E}_{z \sim q_\phi} [\log p(z)] + \underbrace{\mathbb{E}_{z \sim q_\phi} [\log p_\theta(u)]}_{\log p_\theta(u) \text{ is const w.r.t } z}
+\end{align}
+$$
+Now, rearrange the terms to group the KL Divergence to Prior and the Reconstruction Loss:
+$$\begin{align}
+\mathrm{KL}\big(q_\phi(z \mid u) \,\|\, p_\theta(z \mid u)\big) &= \underbrace{\left( \mathbb{E}_{z \sim q_\phi} [\log q_\phi(z \mid u)] - \mathbb{E}_{z \sim q_\phi} [\log p(z)] \right)}_{\mathrm{KL}(q_\phi(z \mid u) \,\|\, p(z))} - \mathbb{E}_{z \sim q_\phi} [\log p_\theta(u \mid z)] + \log p_\theta(u)
+\end{align}$$
+Thus, the relationship is:
+$$\log p_\theta(u) = \underbrace{\mathbb{E}_{z \sim q_\phi} [\log p_\theta(u \mid z)] - \mathrm{KL}\big(q_\phi(z \mid u) \,\|\, p(z)\big)}_{\text{ELBO}(\theta, \phi)} + \underbrace{\mathrm{KL}\big(q_\phi(z \mid u) \,\|\, p_\theta(z \mid u)\big)}_{\ge 0}$$
+
+
+
 
 ## **Inference (The Generative Loop)**
 **Goal**: Generate new data. The Encoder is deleted.
