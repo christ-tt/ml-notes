@@ -7,7 +7,7 @@ tags:
 
 
 # **Data**
-We consider supervised or self-supervised learning settings where we observe samples $x$ drawn i.i.d. from an **unknown data-generating distribution** $p_{\text{data}}(x)$. 
+We consider supervised or self-supervised learning settings where we observe samples $x$ drawn i.i.d. from an **unknown data-generating distribution** $p_{\text{data}}(x)$.
 We **never** assume a *parametric* form for $p_{\text{data}}$.
 - **The sample** $x$: In conditional settings, $x = (u, y)$.
     - $u$ (Context/Input): The information we condition on (e.g., Image, Text Prompt, Features).
@@ -15,14 +15,14 @@ We **never** assume a *parametric* form for $p_{\text{data}}$.
 - The **Dataset** $D$: A finite set of samples observed from the real distribution.
 $$
 D = \{x_1, \dots, x_N\} = \{(u_1, y_1), \dots, (u_N, y_N)\}
-\sim p_{\text{data}} 
+\sim p_{\text{data}}
 $$
 
 ---
 
 # **Model: The Determinisitc-Stochastic Couple**
 
-We define a **Model** as a **Parametric Family of Probability Distributions**, indexed by parameters $\theta$ in a parameter space $\Theta$. 
+We define a **Model** as a **Parametric Family of Probability Distributions**, indexed by parameters $\theta$ in a parameter space $\Theta$.
 
 $$
 \mathcal{P} = \{p_\theta(y \mid u): \theta \in \Theta\}
@@ -54,12 +54,12 @@ $$
 
 Later when we introduce how we actually perform *learning*, we'll optimize on $\theta$ instead of $\psi$:
 - $\psi$ is different for every single input. If we just optimized $\psi$, we would just be memorizing the dataset (setting $\mu = u$ for every point).
-- $\theta$ defines the function. We want to learn $f_\theta$ that generates the correct $\psi$ for any input (including new ones). 
+- $\theta$ defines the function. We want to learn $f_\theta$ that generates the correct $\psi$ for any input (including new ones).
 
 Just a side note, recall that in intro class, for our linear regression we introduce $b$ to handle 'noise'. Unfortunately, this was an oversimplification.
 Bias $b$ handles the **Position** of the distribution, so it is part of $\mu$, while noise $\epsilon$, controls the **Spread** of the distribution, the $\sigma$.
 Bias is requried to handle the case where $x = 0$ and $y \neq 0$. It also makes the function *Affine*, allowing 'cursor' to lift off the origin and shift activation functions (ReLU) left or right, which is essential for 'wiggling' the curve to fit complex shapes.
-In modern deep learning, however, with the use of 
+In modern deep learning, however, with the use of
 - **LayerNorm**: explicitly re-centering the data to zero and cancels out the shift provided by bias,
 - **RMSNorm**: normalizing scale (variance), but empirically keeping the latent states centered around zero improves stability during training,
 we usually do not use bias in MLP layers. However, in final output layer (*lm_head*), we still usually retain the bias part, learning a shift of logits.
@@ -72,7 +72,7 @@ A specific probability density form $p(\cdot \mid \psi)$ that defines how the ta
 
 ## **Workflow**
 
-1. **Input**($u$): The context (e.g. *"The cat sits on"*). 
+1. **Input**($u$): The context (e.g. *"The cat sits on"*).
 2. **Network**($f_\theta$): The deterministic calculation.
 3. **Sufficient Statistics**($\psi$): The result of the calculation, output parameters.
     e.g. logits of the next token over vocabularty, or probability of dog or cat [0.1, 0.9]
@@ -146,7 +146,7 @@ While generic approximation theoretically faces the **Curse of Dimensionality**â
 
 ### **Motivation 2: Why We need Stochastic**
 
-The necessity of introducing a stochastic part (the likelihood/noise model) essentially boils down to one fact: 
+The necessity of introducing a stochastic part (the likelihood/noise model) essentially boils down to one fact:
 > The world is not a **Many-to-One** mathematical function.
 
 A **Many-to-One** mapping takes an input and produces exactly one fixed output.
@@ -174,7 +174,7 @@ In standard Supervised Learning (MLE), we do not sample during training, but in 
 - Inference (**Generation**):$\theta \to \psi \xrightarrow{\text{Sample}} \hat{y}$; We create a new, fake reality.
 - Training (**Scoring**):$\theta \to \psi \xrightarrow{\text{Score}} y_{\text{real}}$; We measure the probability of the existing reality.
 
-e.g. Top-k / Top-p / Temperature: 
+e.g. Top-k / Top-p / Temperature:
 - Inference-Time Heuristics for LLM decoding, not reflected / updated in training.
     - non-differentiable *"hacks"* used to chop off the tail of the distribution because the model is **imperfect**.
     - We use Top-p only because the model sometimes assigns small probability to garbage, and we want to manually force it to stay "safe."
@@ -236,7 +236,7 @@ From the **frequentist** perspective, probability is defined via frequencies:
 - For discrete variables, probabilities are estimated by counting occurrences
 - For continuous variables, probability density is inferred from samples
 
-From our observed dataset $\mathcal{D} = \{(u_1, y_1), \dots, (u_N, y_N)\}$, where data are i.i.d. from the true distribution. 
+From our observed dataset $\mathcal{D} = \{(u_1, y_1), \dots, (u_N, y_N)\}$, where data are i.i.d. from the true distribution.
 The **Likelihood** of the dataset under our model is the joint probability:
 
 $$
@@ -253,16 +253,16 @@ $$
 
 ## Maximum Likelihood Estimation (MLE)
 
-Given the *family of distribution* parameterized by $\theta$ 
+Given the *family of distribution* parameterized by $\theta$
 
 $$
 \mathcal P = \{p_\theta: \theta \in \Theta\},
 $$
 
-the MLE objective seeks the parameter $\hat{\theta}_{\text{MLE}}$ that maximizes the fit to the observed data. 
+the MLE objective seeks the parameter $\hat{\theta}_{\text{MLE}}$ that maximizes the fit to the observed data.
 
 $$
-\begin{align} 
+\begin{align}
 \hat \theta_{\text{MLE}} &= \arg \max_\theta \log P(D\mid\theta) \\
 &= \arg \max_\theta \sum_{k=1}^N \log P(x_i\mid\theta) \\
 &= \arg \min_\theta \frac{1}{N}\sum_{k=1}^N -\log P(x_i\mid\theta) \\
@@ -275,7 +275,7 @@ Formally, using the **Dirac** delta $\delta(\cdot)$:
 
 $$
 \hat p(x) = \frac{1}{N} \sum_{k=1}^N \delta (x - x_k)
-$$ 
+$$
 
 MLE minimizes the expected negative log-likelihood (NLL) over the observed empirical distribution.
 
@@ -288,16 +288,16 @@ Minimizing Negative Log-Likelihood (NLL) is mathematically equivalent to minimiz
 Though we never assume a parametric form for the True Data Distribution, MLE effectively projects this complex, unknown reality onto our model family.
 
 Let $p_{\text{data}}(x)$ be the true, unknown data distribution.
-By **Law of Large Numbers**, as $N \to \infty$ , $\hat p(x) \to p_{\text{data}}(x)$. The empirical expectation converges to the true expectation: 
+By **Law of Large Numbers**, as $N \to \infty$ , $\hat p(x) \to p_{\text{data}}(x)$. The empirical expectation converges to the true expectation:
 
 $$
 \mathbb E_{x \sim \hat p(x)}[\cdot] \;\xrightarrow{N \to \infty}\; \mathbb E_{x \sim p_{\text{data}}(x)}[\cdot]
 $$
 
-The optimization problem becomes minimizing the **Cross-Entropy** between *Truth* and *Model*: 
+The optimization problem becomes minimizing the **Cross-Entropy** between *Truth* and *Model*:
 
 $$
-\hat \theta_{\text{MLE}} = \arg \min_\theta \mathbb E_{x \sim p_{\text{data}}(x)} \left [- \log p(x\mid\theta) \right] 
+\hat \theta_{\text{MLE}} = \arg \min_\theta \mathbb E_{x \sim p_{\text{data}}(x)} \left [- \log p(x\mid\theta) \right]
 $$
 
 We can expand the KL Divergence term:
@@ -315,7 +315,7 @@ $$
 \hat \theta_{\text{MLE}} = \arg \min_\theta \mathrm{KL}\big(p_{\text{data}}(x) \,\|\, p(x\mid \theta)\big)
 $$
 
-We can also establish this using basic logarithm and linearity of expectation 
+We can also establish this using basic logarithm and linearity of expectation
 
 $$
 \begin{align*} \log (\frac{A}{B}) &= \log(A) - \log (B) \\ \mathbb E[-\log A] & = \mathbb E[\log B - \log A - \log B] \\ &= \mathbb E[\log\frac{B}{A}] - \mathbb E[\log B] \\ \mathbb E_{p_{\text{data}}}[-\log p(x\mid\theta)] &= \mathbb E_{p_{\text{data}}} \left[ \log \frac{p_{\text{data}}(x)}{p(x\mid\theta)} \right] - \mathbb E_{p_{\text{data}}}[\log p_{\text{data}}(x)] \\ &= \mathrm{KL}\big(p_{\text{data}}(x) \,\|\, p(x\mid \theta)\big) + H(p_{\text{data}})\end{align*}
@@ -351,7 +351,7 @@ In practice, the choice of the prior (e.g. Gaussian, Laplace) leads directly to 
 
 # **Loss**
 
-In deep learning engineering, we often treat *Loss functions* as different *measuring* sticks, e.g. 
+In deep learning engineering, we often treat *Loss functions* as different *measuring* sticks, e.g.
     - *Mean Squared Error* measures distance.
     - *Cross Entropy* measures surprise.
 From the probabilistic perspective, however, there's only **ONE** loss function: *Negative Log Likelihood* (NLL).
@@ -442,7 +442,7 @@ $$
 $$
 y = \mu_\theta(u) + \epsilon, \qquad \epsilon \sim \mathcal{N}(0, \sigma^2I).
 $$
-Equivalently, 
+Equivalently,
 $$
 y \mid \mu \sim \mathcal{N}(\mu, \sigma^2I), \qquad p_\theta(y \mid u) = \mathcal{N}(y \mid \mu_\theta(u), \sigma^2I).
 $$
@@ -546,7 +546,7 @@ This distinction is based on the **Dataset $\mathcal{D}$**.
 This distinction is based on the **Probability Distribution** being learned.
 
 1. **Discriminative Models:**
-* **Model:** $p(y\mid u)$ 
+* **Model:** $p(y\mid u)$
 * **Focus:** The **Decision Boundary**. Given input $u$, which output $y$ is most likely?
 * *Behavior:* Can distinguish "Dog" from "Cat," but cannot draw a dog.
 * *Examples:* Logistic Regression, Image Classifiers.
@@ -554,7 +554,7 @@ This distinction is based on the **Probability Distribution** being learned.
 
 2. **Generative Models:**
 * **Model:**$p(u,y)$ (Joint) or $p(u)$ (Marginal).
-* **Focus:** The **Manifold Geometry** and **Data Density**. How is the data actually created? 
+* **Focus:** The **Manifold Geometry** and **Data Density**. How is the data actually created?
 * *Behavior:* Can generate new samples $u_{\text{new}} \sim p(u)$. To do this, they must understand the internal structure of the data.
 * *Examples:* LLMs, Diffusion Models, VAEs.
 

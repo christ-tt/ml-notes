@@ -37,7 +37,7 @@ where
 - Decoder: $D_\phi: \mathbb R^d \to \mathbb R^D$
 - Bottleneck: $d < D$
 
-### Local geometry: tangent vs normal directions 
+### Local geometry: tangent vs normal directions
 A smooth manifold is globally curved but **locally linear**: around a point $x$, $\mathcal M$ is well-approximated by its **tangent space** $T_x\mathcal M$, a linear hyperplane. (Flat Earth Analogy)
 
 Reconstruction loss induces two complementary behaviors:
@@ -90,10 +90,10 @@ Reconstruction loss induces two complementary behaviors:
 	* Implicitly we only have an empirical set of latent codes $\{z_i = E_\theta(x_i)\}$:
 		* a set of points, not an analytic density (not smooth/continuous in a controlled way for sampling).
 * A well-behaved latent space for naive sampling
-	* Typical issues: 
+	* Typical issues:
 		* Holes: unused regions
-		* Folding/self-intersections: distant points on the manifold map close in latent 
-		* Disconnected components: separate clusters with no smooth path 
+		* Folding/self-intersections: distant points on the manifold map close in latent
+		* Disconnected components: separate clusters with no smooth path
 		* Highly non-uniform density
 	* So a random $z \in \mathbb R^d$ may decode off-manifold, and interpolation can cross invalid regions.
 * A principled way to *sample*
@@ -108,7 +108,7 @@ One common training objective (ELBO):
 $$\log p_\phi(x)\ \ge\ \mathbb E_{q_\theta(z\mid x)}[\log p_\phi(x\mid z)] - \mathrm{KL}(q_\theta(z\mid x)\,\|\,p(z))$$
 
 
-## How to Train an AE so that latent follows a specific distribution 
+## How to Train an AE so that latent follows a specific distribution
 * When training the AE, explicitly impose the constraint that the hidden representation $z$ must follow a specific distribution, e.g. $P(z) \sim \mathcal N(0, I)$ .
 * To generate novel values, sample $z$ from the prescribed distribution, and if it is properly sampled, the output should be a reasonable generation.
 * ![[VAE-1.png]]
@@ -116,26 +116,26 @@ $$\log p_\phi(x)\ \ge\ \mathbb E_{q_\theta(z\mid x)}[\log p_\phi(x\mid z)] - \ma
 * Given encoder and decoder may have arbitrarily complex structure and their own parameters $\theta, \phi$, we ask, how to properly train an AE so that the latent follows, e.g. Normal?
 
 ### Prior of the Latent: Isotropic Gaussians
-* $P(Z) = \mathcal N(0, I)$ 
+* $P(Z) = \mathcal N(0, I)$
 * Maximally uninformative, simplest continuous prior with strong math properties
 * The distribution is perfectly symmetric in every direction
-	* 
+	*
 	* No preferred direction, axis, and rotational invariance
 	* Avoids arbitrary coordinate bias and special latent dimensions
 * The distribution has independence of components
-	* The different variables (sub-vectors $Z_1, Z_2$ of $Z$ ) are independent. i.e. $P(Z_1, Z_2) = P(Z_1)P(Z_2)$ 
+	* The different variables (sub-vectors $Z_1, Z_2$ of $Z$ ) are independent. i.e. $P(Z_1, Z_2) = P(Z_1)P(Z_2)$
 	* Encourages disentanglement
 	* Prevents latent dimensions from having to coordinate
 		* The model can still learn correlated semantics, but it must encode them via the *decoder* , not via latent coupling
 * Closure under marginalization
-	* Each individually will also be isotropic: $P(Z_1) = \mathcal N(0, I)$ 
+	* Each individually will also be isotropic: $P(Z_1) = \mathcal N(0, I)$
 	* Making partial sampling, dimensional slicing, hierarchical models mathematically clean
 * Analytic, closed-form, differentiable, and stable in high dimensions density, crucial for backprop gradients.
-	* $$ P(Z) = \frac{1}{\sqrt{(2\pi)^d}} \exp \left (-0.5 |Z|^2 \right),$$ $$ -\log P(Z) = 0.5d\log 2\pi + 0.5 |Z|^2$$ 
+	* $$ P(Z) = \frac{1}{\sqrt{(2\pi)^d}} \exp \left (-0.5 |Z|^2 \right),$$ $$ -\log P(Z) = 0.5d\log 2\pi + 0.5 |Z|^2$$
 	* The quadratic term $\to$ L2 penalty on latent magnitude, and by enforcing a Gaussian prior we penalize latent codes for drifting away from the origin.
 * Training with statistical constraints:![[VAE-2.png]]
-	* Minimize the error between $X, \hat X$ 
-	* Minimize the KL divergence between the distribution of $z$ and the standard Gaussian $\mathcal N(0, I)$ 
+	* Minimize the error between $X, \hat X$
+	* Minimize the KL divergence between the distribution of $z$ and the standard Gaussian $\mathcal N(0, I)$
 		* By Maximum Likelihood, minimize the negative log likelihood of $z$ as computed from a standard Gaussian.
 
 ### Problem with Pushing latent to Zero
@@ -200,7 +200,7 @@ $$
 \text{ELBO} = \underbrace{\mathbb{E}_{z \sim q_\phi(z|x)} [\log p_\theta(x \mid z)]}_{\text{Reconstruction Term}} - \underbrace{D_{KL}(q_\phi(z|x) \,\|\, p(z))}_{\text{Regularization Term}}
 $$
 
-The marginal log-likelihood (the Evidence) can be decomposed into: 
+The marginal log-likelihood (the Evidence) can be decomposed into:
 $$
 \log p_\theta(u) = \text{ELBO} + D_{KL}(q_\phi(z|x) \,\|\, p_\theta(z|x))
 $$
@@ -249,7 +249,7 @@ This integral is effectively calculating the **weighted average reconstruction q
 
 ### **Approximate Posterior v.s. True Posterior**
 
-**Indexing**: we index **True Posterior** $p(z \mid u)$ with $\theta$ because the 'Truth' is defined by the **Decoder**. As we update $\theta$, we change the mapping from latent to image. 
+**Indexing**: we index **True Posterior** $p(z \mid u)$ with $\theta$ because the 'Truth' is defined by the **Decoder**. As we update $\theta$, we change the mapping from latent to image.
 - The Target ($u$): The Real Image. (Fixed).
 - The Archer ($\theta$): The Decoder.
 - The Shot ($z$): The latent code provided by the Encoder.
@@ -301,7 +301,7 @@ The first term is **reconstruction**, maximizing likelihood of data given latent
         $$
         x = D(z; \phi) + \epsilon, \quad \epsilon \sim \mathcal{N}(0, C)
         $$
-        which is mathematically equivalent to 
+        which is mathematically equivalent to
         $$
         p_\theta(x \mid z) = \mathcal{N}(x; \mu=D(z), \Sigma=C)
         $$
@@ -482,7 +482,7 @@ If I tell you:
     - Current State: "This specific noisy blob."
     - Destination: "This specific photo of a Cat."
 Now, the question "Where did I come from?" has a specific, calculable answer. We don't need to consider all images, just the **path** from this Cat to this Noise.
-This makes the Reverse Posterior Tractable. 
+This makes the Reverse Posterior Tractable.
 
 Since our noise process is Gaussian, this specific path is just a weighted average of the current noise and the original image.
 
@@ -494,7 +494,7 @@ Imagine a specific type of HVAE with **three constraints**:
 
 1. **Infinite Depth:** We add more and more layers ($T\to \infty$).
 2. **Same Dimension:** Every latent layer $z_t$  has the **same shape** as the image $x$ (no compression in size, only in information).
-3. **Fixed Encoder:**: 
+3. **Fixed Encoder:**:
     * In HVAE, we *learn* the Encoder $q_\phi$.
     * In this special case, we **fix** the Encoder to be a simple, non-learnable noise injector.
     * $q(z_t \mid z_{t-1}) = \mathcal{N}(z_t; \sqrt{1-\beta} z_{t-1}, \beta I)$. (Just adding Gaussian noise).
@@ -536,7 +536,7 @@ Key **Assumptions**:
 
 Instead of training an encoder, we define a fixed **Variance Schedule** $\beta_1, \dots, \beta_T$ (scalars) that controls the noise level at each step with **Linear Scheduler**.
 
-The transition probability is defined as 
+The transition probability is defined as
 $$
 q(x_t \mid x_{t-1} = \mathcal{N}\left(x_t; \sqrt{1 - \beta_t}x_{t-1}, \beta_tI\right)
 $$
@@ -557,17 +557,17 @@ $$
 $$
 Standard values: we use $\beta_1 = 0.0001$ as step 1 adds tiny noise, and $\beta_T = 0.02$ adding roughly 200 times more noise.
 
-**Motivation**: if we use constant noise, either it will be 
+**Motivation**: if we use constant noise, either it will be
 - too aggressive: perhaps the image would turn to pure static by step 10, and the remaining 990 steps would just be mixing static with static, wasting compute
 - too weak: at step 1000, the image would still be visible ghostly, breaking the assumption that $x_T$ is pure Gaussian noise.
 
-Linear schedule ensures a smooth, gradual decay of the **Signal-to-Noise Ratio (SNR)**. 
+Linear schedule ensures a smooth, gradual decay of the **Signal-to-Noise Ratio (SNR)**.
 -
 ---
 
 ## **Reverse Process - Learned Decoder**
 
-Since the forward process destroys information, the reverse step $q(x_{t-1} \mid x_t)$ is intractable at inference time as we don't know which specific $x_0$ the noise came from; but during training, we can still condition it on $x_0$. 
+Since the forward process destroys information, the reverse step $q(x_{t-1} \mid x_t)$ is intractable at inference time as we don't know which specific $x_0$ the noise came from; but during training, we can still condition it on $x_0$.
 We train a neural network $p_\theta$ to approximate $q(x_{t-1} \mid x_t)$.
 $$
 p_\theta(x_{t-1} \mid x_t) = \mathcal{N}(x_{t-1}; \mu_\theta(x_t, t), \Sigma_\theta(x_t, t))
@@ -627,15 +627,15 @@ To generate an image, we start from pure noise and reverse the chain using the t
 **DDPM Sampling**:
 1. Start: Sample $x_T \sim \mathcal{N}(0, I)$.
 2. Loop: For $t = T, T-1, \dots, 1$:
-    - Use DiT to Predict Noise: 
+    - Use DiT to Predict Noise:
         - input time step $t$ and current noisy image $x_t$
         - DiT engine patchify, embed context $(\gamma, \beta)$ for adaLN
         - Outputs: $\hat \epsilon = \epsilon_\theta(x_t, t)$.
-    - Denoise (Remove predicted noise): 
+    - Denoise (Remove predicted noise):
     $$
     \mu_t = \frac{1}{\sqrt{\alpha_t}}\left(x_t - \frac{1-\alpha_t}{\sqrt{1-\bar \alpha_t}}\hat\epsilon\right)
     $$
-    - Add Langevin Noise: (Crucial for correct texture/diversity). 
+    - Add Langevin Noise: (Crucial for correct texture/diversity).
     $$
     x_{t-1} = \mu_t + \sigma_t z, \qquad z \sim \mathcal{N}(0, I)
     $$
@@ -894,7 +894,7 @@ This forces the encoder to pack the latent codes into a neat, standard unit sphe
 - Result: The latent space $z$ "looks like" Gaussian noise.
 - Benefit for Diffusion: This minimizes the domain gap. The Diffusion process adds Gaussian noise to something that is already quasi-Gaussian. The transition is smooth.
 
-During Diffusion Training, we usually don't need the stochasticity $z \sim \mathcal{N}(\mu, \sigma)$. 
+During Diffusion Training, we usually don't need the stochasticity $z \sim \mathcal{N}(\mu, \sigma)$.
 In the original High-Resolution Image Synthesis with Latent Diffusion Models paper (Rombach et al.), they actually tested two types of regularization:
 - KL-Reg (VAE): Standard VAE.
 - VQ-Reg (Vector Quantized): Discrete codes (used in VQ-GAN).
@@ -979,15 +979,15 @@ The architecture choices follow directly from the mathematical nature of the dat
     - The Process (Diffusion): We cannot model pixels sequentially (left-to-right) efficiently because images are 2D holistic structures. Instead, we model a sequence of noise levels.
     - The "Latent": The image itself is the latent variable, but it evolves over time steps $t$.
 
-## **2. Deconstructing Diffusion**: 
+## **2. Deconstructing Diffusion**:
 What are we assuming?
-In your example (Text-Guided Image Editing/Generation), the workflow is distinct. 
+In your example (Text-Guided Image Editing/Generation), the workflow is distinct.
 Let's look at Latent Diffusion (e.g., Stable Diffusion), which is the standard today.
 - The Inputs & OutputsInput ($u$):
     - Text: Embedded via CLIP/T5 (Frozen).
     - Image State ($x_t$): This is the crucial part. We don't input "pixels." We input a Noisy Latent Tensor.
-        - Note: If using Stable Diffusion, we first use a VAE Encoder to compress the pixels into a latent space 
-            - $z_0$, then add noise to get 
+        - Note: If using Stable Diffusion, we first use a VAE Encoder to compress the pixels into a latent space
+            - $z_0$, then add noise to get
             - $z_t$.
 - Model ($f_\theta$): A U-Net or DiT (Diffusion Transformer).
     - It takes Noisy Latent $z_t$ + Text Embedding.
@@ -1034,7 +1034,7 @@ This is often the most confusing part. Let's separate them:
 
 - Following this question, even we name 'intermediate representation' as part of the whole model, can we effectively assume encoder and decoders are decoupled? Where the embedding of the encoder can be used, or easily fine-tuned, for other down-stream tasks? Does this apply to AE, or VAE's encoder and decoder as well?
 
-- Can we unify the way VAE is doing encoding, with how we form our 'stochastic' part of the model? i.e. we are outputing $\psi$ with local parameters for the distribution, whereas in VAE for the latent variables we are essentially outputting mean and var for a guassian distribution? When we say our latent does not follow a specific distribution, we are saying the local parameters themselves? 
+- Can we unify the way VAE is doing encoding, with how we form our 'stochastic' part of the model? i.e. we are outputing $\psi$ with local parameters for the distribution, whereas in VAE for the latent variables we are essentially outputting mean and var for a guassian distribution? When we say our latent does not follow a specific distribution, we are saying the local parameters themselves?
 
 - In VAE, we say given the input, we have the latent from the encoder, where it is local parameters of a distribution; can we apply this to ALL the reprensentation / embeddings for other tasks, e.g. language modeling? Instead of output a fixed vector for a word, why don't we follow the latent idea of VAE and train the encoder in a way that it output a parameters of the distribution? Adding the stochastic even on the fixed embedding vectors.  
 
@@ -1043,5 +1043,3 @@ This is often the most confusing part. Let's separate them:
 - When we say why probabilistic embedding is not the default, we say usually we use the mean only. So, with this interpretation, essentially the output embedding vector is still not a point mass, but a distribution parameter? Isn't this contradict to what we were saying? 2. We also say, this is for discriminative tasks. But for generation tasks including LLM itself, why we still don't think it is necessary? 3. Then why this is absolutely necessary for VAE? If ViT and LLaVA can handle 'holes' on the manifold well, why can't VAE? If we switch the decoder to a very powerful transformer based decoder (parameters in terms of hundreds of Billions or even trillion), like modern multi-modal understanding / generation models, then we don't necessarily use latent as both \mu and \sigma? More importantly, the question is why for VAE this is required, but why current VLM (like GLM or Gemma) doesn't use it?
 
 - The fundamental difference between text generation and image generation, or, auto-regressive way and diffusion way, is the underlying conditional distribution we are assuming? For text generation, given a prompt, we embed it to be (seq_len, dim), and this embedding could be from previous step of the decoder (as we are doing auto-regressive way), then, given our decoder f_\theta, we output a logits and softmax over the whole vocabulary for the next most probable word (which we could do sampling based on top-k, top-p as we are assuing a categorical distribution for next word given prompts). On the other hand, for image generation, where we usually use diffusion way, given a text and a image pair (e.g. text: change the cat in this image to a dog, and image: a picture of a cat on a sofa), we embed the text using lm_head of a decoder, and we embed the image using the ViT, and then, given (seq_len, dim) and (patched / compressed pixels, dim), we do diffusion. Now, what conditional distribution are we assuming? Why here we use a 'variational' way? What are we essentially varying? How do 'latent' and 'noise' come into play?
-
-
