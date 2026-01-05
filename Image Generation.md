@@ -520,7 +520,9 @@ So, mathematically, a Diffusion model **is** an HVAE where the inference path is
 
 # **Diffusion (DDPM)**
 
-A Diffusion Model is a **Parameterized Markov Chain** trained using variational inference. It consists of two processes:
+A Diffusion Model is a **Parameterized Markov Chain** trained using variational inference. It can be understood as a Hierarchical VAE with $T \to \infty$ layers, where the encoder is fixed and the latent variables have the same dimension as the input.
+
+It consists of two processes:
 1. Forward Process (Diffusion): A fixed, linear chain that gradually destroys structure in data $x_0$ by adding noise until it becomes pure Gaussian noise $x_T$.
 2. Reverse Process (Denoising): A learned chain that attempts to invert the diffusion process, restoring structure from noise.
 
@@ -528,6 +530,36 @@ Key **Assumptions**:
 1. Markov Property: The future state depends only on the current state.
 2. Gaussian Transitions: The noise added at each step is Gaussian. This allows us to sum variances easily.
 3. Small Steps ($T \to \infty$): The noise added at each step is small enough that the reverse distribution $p(x_{t-1}|x_t)$ can also be approximated as Gaussian.
+
+
+## **Forward Process - Fixed Encoder**
+
+Instead of training an encoder, we define a fixed **Variance Schedule** $\beta_1, \dots, \beta_T$ (scalars) that controls the noise level at each step with **Linear Scheduler**.
+
+The transition probability is defined as 
+$$
+q(x_t \mid x_{t-1} = \mathcal{N}\left(x_t; \sqrt{1 - \beta_t}x_{t-1}, \beta_tI\right)
+$$
+- The **Jump** Property: Because Gaussian distributions are additive, we do not need to iterate step-by-step during training. We can sample $x_t$ directly from $x_0$ in closed form. Let $\alpha_t = 1-\beta_t$ and $\bar \alpha_t = \prod_{i=1}^t \alpha_i$:
+$$
+q(x_t \mid x_0) = \mathcal{N}\left(x_t; \sqrt{\bar \alpha_t}x_0, (1-\bar \alpha_t)I\right)
+$$
+- **Implementation** (reparameterization): to sample $x$, we simply scale the image and add noise
+$$
+x_t = \sqrt{\bar \alpha_t}x_0 + \sqrt{1 - \bar \alpha_t}\epsilon, \qquad \epsilon \sim \mathcal{N}(0, I)
+$$
+
+### **Linear Scheduler**
+
+---
+
+## **Reverse Process - Learned Decoder**
+
+
+
+
+
+
 
 
 
