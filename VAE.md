@@ -440,6 +440,11 @@ Thus, we **invert** the encoder. To compare the Encoder to the Decoder, we must 
 Using Bayes' Rule:
 $$q(z_{t-1} \mid z_t) = \frac{q(z_t \mid z_{t-1}) \, q(z_{t-1})}{q(z_t)}$$
 
+Here is where the $x$ (or $z_0$) comes in.The terms $q(z_{t-1})$ and $q(z_t)$ are marginal probabilities. In a Markov chain starting from data $x$, these marginals depend entirely on the starting point $x$.
+- Without $x$, $q(z_t)$ is a mixture over the entire dataset (very complex).
+- With $x$, the math becomes solvable (Gaussian).
+$$q(z_{t-1} \mid z_t, x) = \frac{q(z_t \mid z_{t-1}) \, q(z_{t-1} \mid x)}{q(z_t \mid x)}$$
+
 If we rewrite the ELBO using this formulation (which is standard in Diffusion math), the sum becomes a beautiful chain of KL divergences:
 $$\text{ELBO} = \underbrace{\mathbb{E}[\log p(x \mid z_1)]}_{\text{Reconstruction}} - \sum_{t=2}^T \underbrace{D_{KL}\Big( q(z_{t-1} \mid z_t, x) \,\|\, p(z_{t-1} \mid z_t) \Big)}_{\text{Denoising Matching}} - \underbrace{D_{KL}(q(z_T \mid x) \| p(z_T))}_{\text{Prior Matching}}$$
 
