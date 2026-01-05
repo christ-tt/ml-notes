@@ -1,0 +1,30 @@
+repos:
+  # --- Basic hygiene ---
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: check-merge-conflict
+      - id: check-yaml
+
+  # --- YAML frontmatter linting ---
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        files: \.(md|yaml|yml)$
+        args: [-d, "{extends: default, rules: {line-length: disable}}"]
+
+  # --- Markdown linting (lightweight) ---
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.39.0
+    hooks:
+      - id: markdownlint
+        files: \.md$
+        args:
+          - "--disable"
+          - "MD013"   # line length
+          - "MD033"   # inline HTML (needed for Obsidian)
+          - "MD041"   # first line heading

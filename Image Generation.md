@@ -879,6 +879,32 @@ Latent Diffusion (Rombach et al., 2022) moves the process to Latent Space.
 
 Why? Efficiency. Running 50 steps on a $64 \times 64$ tensor is feasible on consumer GPUs. Running on $512 \times 512$ is not.
 
+#### **Why using VAE**
+
+If the Diffusion Model is doing the heavy lifting of generation, why do we care if the compressor is variational (probabilistic) or just a standard deterministic Autoencoder?
+
+The short answer: We need the regularization (KL Divergence), not necessarily the stochastic sampling.
+
+Diffusion models start from Pure Gaussian Noise 2$\mathcal{N}(0, I)$ and try to denoise it into a valid latent $z$.
+The VAE adds the KL Divergence term to the loss:
+$$
+\mathcal{L} = \text{Recon} + \lambda \cdot D_{KL}(q(z|x) \| \mathcal{N}(0, I))
+$$
+This forces the encoder to pack the latent codes into a neat, standard unit sphere centered at 0.
+- Result: The latent space $z$ "looks like" Gaussian noise.
+- Benefit for Diffusion: This minimizes the domain gap. The Diffusion process adds Gaussian noise to something that is already quasi-Gaussian. The transition is smooth.
+
+During Diffusion Training, we usually don't need the stochasticity $z \sim \mathcal{N}(\mu, \sigma)$. 
+In the original High-Resolution Image Synthesis with Latent Diffusion Models paper (Rombach et al.), they actually tested two types of regularization:
+- KL-Reg (VAE): Standard VAE.
+- VQ-Reg (Vector Quantized): Discrete codes (used in VQ-GAN).
+
+Deterministic Trick: When training the Diffusion model, we often just take the Mean of the posterior $\mu = E(x)$ (or sample with very low variance) to get the latent $z_0$. We don't necessarily need the randomness there, because the Diffusion process itself adds massive amounts of noise ($x_t$).
+
+So why VAE? It's not about the randomness; it's about the Geometry of the latent space. VAEs produce a smooth, continuous, and centered manifold that is easy for a Diffusion model to traverse.
+
+---
+
 ### **SOTA Video Generation (Sora & The Future)**
 
 How do we move from Images (2D) to Video (3D: Time + Height + Width)?
