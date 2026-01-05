@@ -156,7 +156,68 @@ Even if we capture the dimensionality of the principal manifold perfectly, there
 
 
 
-# Variational Auto Encoder
+# **Variational Auto Encoder**
+
+## **Training (The Encoder-Decoder Loop)**
+**Goal**: Learn the manifold parameters $\theta$ (Decoder) and the mapping $\phi$ (Encoder).
+1. **Input** ($x$): A real image (e.g., a handwritten "7").
+2. **Encoder** ($f_{\text{enc}}$):
+    - Maps $x$ to latent parameters: Mean $\mu_z$ and Log-Variance $\log \sigma_z^2$.
+    - $\psi_{\text{enc}} = [\mu_z, \sigma_z]$.
+    - Define the **Approximate Posterior** $q(z \mid u) = \mathcal{N}(\mu_z, \sigma_z)$.
+        - Estimate **True Posterior** $p(z \mid u)$ latent codes over ALL $u$, intractable.
+3. **Reparameterization** (The Stochastic Trick):
+    - We want to sample $z \sim q(z \mid u)$
+    - We cannot backpropagate through a random node $z \sim \mathcal{N}(\mu, \sigma)$.
+    - **Trick**: Sample explicit noise $\epsilon \sim \mathcal{N}(0, I)$ and shift it:
+    $$
+    z = \mu_z + \sigma_z \odot \epsilon
+    $$
+    - Now gradients can flow back to $\mu$ and $\sigma$.
+4. **Decoder** ($f_{\text{dec}}$):
+    - Maps $z$ back to data space parameters (usually just the mean).
+    - $\psi_{\text{dec}} = \mu_x$, define the **Likeihood** $p(x\mid z) = \mathcal{N}(\mu_x, I)$
+    - $\hat{x} = \text{Decoder}(z)$.
+5. **Loss Calculation** (ELBO):
+    - Term 1 (**Reconstruction**): How close is $\hat{x}$ to $x$? (MSE Loss).
+    - Term 2 (**Regularization**): How close is the approximate posterior $\mathcal{N}(\mu_z, \sigma_z)$ to the prior $\mathcal{N}(0, I)$? (KL Divergence).
+    $$
+    \mathcal{L} = \|x - \hat{x}\|^2 + \beta \cdot D_{KL}(\mathcal{N}(\mu_z, \sigma_z) \| \mathcal{N}(0, I))
+    $$
+
+### **ELBO**
+
+## **Inference (The Generative Loop)**
+**Goal**: Generate new data. The Encoder is deleted.
+1. **Input** ($z$): We need a seed.
+    - Sample $z \sim \mathcal{N}(0, I)$ (The Prior).
+2. **Decoder** ($f_{\text{dec}}$):
+    - $\psi_{\text{out}} = \text{Decoder}(z)$.
+    - (Typically $\psi_{\text{out}}$ is just the mean image $\mu_x$).
+3. **Output** ($x_{\text{gen}}$):
+    - Usually, we just display the mean $\mu_x$ directly (it looks cleaner).
+    - Strictly speaking, we should sample $x_{\text{gen}} \sim \mathcal{N}(\mu_x, C)$
+        - For Gaussian likelihood, we usually use **additive** noise
+        $$
+        x = D(z; \phi) + \epsilon, \quad \epsilon \sim \mathcal{N}(0, C)
+        $$
+        which is mathematically equivalent to 
+        $$
+        p_\theta(x \mid z) = \mathcal{N}(x; \mu=D(z), \Sigma=C)
+        $$
+        - To decide variance $C$,
+        $$\log p(x \mid z) \propto -\frac{1}{2} (x - D(z))^T C^{-1} (x - D(z)) - \frac{1}{2} \log |C|$$
+        We could
+            - Learn it (Heteroscedastic): The Decoder outputs both the mean $\mu_x$ and the variance $\sigma_x^2$ for every pixel.
+                - Pros: The model learns which parts of the image are detailed (low variance) vs. noisy/texture (high variance).
+                - Cons: Unstable training. It often collapses to predicting zero variance (infinite likelihood).
+            - Fix it (Homoscedastic) \[**standard**\]
+                - We simply assume $C = \sigma^2 I$ is a fixed scalar constant (hyperparameter) for all data points.
+                - If $C = I$ (identity matrix), the term $\log |C|$ becomes constant and vanishes from the optimization.
+                - The likelihood term simplifies purely to:$$\mathcal{L}_{\text{recon}} \propto - \| x - D(z) \|^2$$
+                - Result: This is why VAEs are trained with MSE Loss. MSE is just the negative log-likelihood of a Gaussian with fixed variance.
+
+
 
 ## **Important Unification & Comparison to Embedding Models**
 
@@ -208,7 +269,6 @@ Even if we capture the dimensionality of the principal manifold perfectly, there
 - In LLaVA, the 'Control' is the image embedding
     - The LLM decoder is generating text, conditioned on the image latent.
     - Conceptually identical to a CVAE, where label $c$ is replaced by a rich vector representation from a ViT.
-
 
 
 ## Questions
