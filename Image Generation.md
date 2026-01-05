@@ -643,12 +643,122 @@ To generate an image, we start from pure noise and reverse the chain using the t
 
 *Note*: Model samplers (DPM-Solver) treat this loop as an ODE and can skip steps, reducing inference from 1000 steps to $\sim$ 20.
 
-### **Advanced Sampling: ODE / SDE**
-
-#### **The "Probability Flow" ODE**
-
-In the standard view (DDPM), we think of the reverse process as a random walk: "Step, add noise, step, add noise."However, Song et al. (2021) proved a breakthrough theorem: For every diffusion SDE (Stochastic), there exists a corresponding ODE (Deterministic) that results in the exact same probability distribution at every time $t$.The VisualizationImagine a cloud of particles drifting and diffusing.SDE (The Drunk Walk): Pick one particle. It jitters around randomly. It eventually hits the target distribution.ODE (The Smooth Stream): Imagine the "average flow" of the particles. If you trace a line that follows the density gradient of the cloud, you get a smooth, non-random curve.Why does this matter?Random paths are jagged. To trace a jagged line accurately, you need tiny steps (1,000 steps).Deterministic paths are smooth. To trace a smooth curve, you can take huge steps (20 steps).11.2. How we "Skip Steps" (Numerical Integration)Once we define the process as an ODE:$$\frac{dx}{dt} = f(x, t)$$Our goal is to find $x(0)$ given $x(T)$. This is exactly what ODE Solvers do.Method 1: Euler Method (DDPM / Ancestral)This is the naive approach.Logic: "I am at $t=1000$. The slope points that way. I will take a tiny step."Math: $x_{t-1} = x_t - \text{slope} \times \Delta t$.Problem: It assumes the curve is a straight line. Since the diffusion curve is curved, taking a big step creates huge "Truncation Error." You fall off the curve.Result: You assume you need $\Delta t = 0.001$ (1,000 steps).Method 2: Higher-Order Solvers (Heun, Runge-Kutta, DPM-Solver)These are "smart" solvers.Logic: "I am at $t=1000$. Let me look at the slope here, AND estimate the slope at $t=950$, AND check the curvature."Mechanism (Taylor Expansion): They use derivatives of the gradient to predict how the curve bends.Result: They can accurately predict where the curve will be in a massive jump (e.g., $t=1000 \to t=950$).Impact: We can reduce inference from 1,000 steps to 10-25 steps with almost no loss in quality.11.3. Why use SDE Solvers? (Stochastic Differential Equations)If ODEs are faster (20 steps), why do we sometimes still use SDEs (adding noise during inference)?1. Error CorrectionThe ODE path is a tightrope.If the neural network makes a slight error in prediction at step $t=900$, the ODE solver essentially "falls off the tightrope." It drifts into a weird region of latent space and creates artifacts.SDEs are forgiving. By adding random noise at each step ($+ \sigma z$), we effectively "shake" the state back into the high-probability manifold. It corrects errors.2. Quality & Texture (The "Blur" Problem)ODE: Because it follows the mean path, it tends to result in slightly "averaged" or "conservative" images.SDE: The added noise injects high-frequency details (grain/texture). SDE-generated images often look sharper and more realistic, even if they take longer to generate.Summary:Use ODE (e.g., DDIM, DPM-Solver): When you need speed (User facing apps, <2 seconds).Use SDE (e.g., Euler Ancestral): When you need maximum quality/creativity and have time.11.4. Clarification: PDE SolversYou asked about Partial Differential Equations (PDEs).Technically, we do not use PDE solvers for inference. Here is the distinction:The PDE (Fokker-Planck Equation): This describes how the entire probability distribution $p(x)$ evolves over time. To solve this, you would need to calculate the density for every possible image in the universe simultaneously. This is computationally impossible (The "Curse of Dimensionality").The SDE/ODE (The Sample): We solve the equation for a single particle (one image). This is a "Characteristic Curve" of the PDE.Confusion Point:Sometimes researchers use the term "PDE" loosely when discussing Consistency Models or Distillation. These techniques try to train a network to "learn the solution" of the ODE directly, mapping $x_T \to x_0$ in a single step (conceptually solving the integral of the differential equation instantly).
 ---
+
+## **Advanced Sampling: ODE / SDE**
+
+### **The Math of Speed: Probability Flow ODE**
+
+Intuition: Imagine a cloud of particles drifting and diffusing.
+- SDE (The Drunk Walk): Pick one particle. It jitters around randomly. It eventually hits the target distribution.
+- ODE (The Smooth Stream): Imagine the "average flow" of the particles. If you trace a line that follows the density gradient of the cloud, you get a smooth, non-random curve.
+
+**Why does this matter?**
+- Random paths are jagged. To trace a jagged line accurately, you need tiny steps (1,000 steps).
+- Deterministic paths are smooth. To trace a smooth curve, you can take huge steps (20 steps).
+
+Now, to skip steps, we must stop thinking of diffusion as a discrete sequence (($1 \dots 1000$)) and start treating it as a continuous curve in time $t \in [0, 1]$.
+
+### **The Continuous Forward SDE**
+
+If we take the limit as the number of steps $T \to \infty$, our discrete update rule becomes a **Stochastic Differential Equation (SDE)**.
+
+Recall the discrete step:
+$$
+x_{t+1} = \sqrt{1-\beta} x_t + \sqrt{\beta} \epsilon
+$$
+In continuous time, this becomes the **Variance Preserving (VP) SDE**:
+$$
+d\mathbf{x} = \underbrace{-\frac{1}{2}\beta(t)\mathbf{x} \, dt}_{\text{Drift (Pull to 0)}} + \underbrace{\sqrt{\beta(t)} \, d\mathbf{w}}_{\text{Diffusion (Add Noise)}}
+$$
+- $dx$:The change in the image.
+- $\beta(t)$: The continuous noise schedule.
+- $d\mathbf{w}$: A standard Brownian motion (Wiener process).
+
+---
+
+### **The Score Function ($\nabla \log p$)**
+
+The "magic" of diffusion is based on a quantity called the **Score Function**: the gradient of the log-density of the data.
+$$s(\mathbf{x}, t) = \nabla_\mathbf{x} \log p_t(\mathbf{x})$$
+- *Intuition:* This vector points towards the "high probability" regions (clean images).
+- **Crucial Link:** Our neural network  is actually learning this Score Function!
+    $$\nabla_\mathbf{x} \log p_t(\mathbf{x}) \approx -\frac{\epsilon_\theta(\mathbf{x}, t)}{\sigma(t)} = -\frac{\epsilon_\theta(\mathbf{x}, t)}{\sqrt{1-\bar{\alpha}_t}}$$
+- Predicting noise ($\epsilon$) is mathematically identical to calculating the gradient of the data density ($\nabla \log p$).
+
+---
+
+### **The Probability Flow ODE**
+
+Song et al. (2021) proved that for any SDE of the form $dx = f(x,t)dt + g(t)dw$, there exists an **ODE** that shares the *exact same marginal probability densities* $p_t(x)$.
+
+The general formula for this ODE is:
+$$d\mathbf{x} = \left[ \underbrace{f(\mathbf{x}, t)}_{\text{Drift}} - \frac{1}{2} \underbrace{g(t)^2}_{\text{Diffusion}} \underbrace{\nabla_\mathbf{x} \log p_t(\mathbf{x})}_{\text{Score}} \right] dt$$
+
+Now, let's **tighten the math** by plugging in our Diffusion variables.
+1. **Substitute Drift :** $f(x,t)$: $-\frac{1}{2}\beta(t)\mathbf{x}$
+2. **Substitute Diffusion :** $g(t)$: $\sqrt{\beta(t)}$
+3. **Substitute Score :** $\nabla \log p$: $-\frac{\epsilon_\theta(\mathbf{x}, t)}{\sqrt{1-\bar{\alpha}_t}}$
+$$d\mathbf{x} = \left[ -\frac{1}{2}\beta(t)\mathbf{x} - \frac{1}{2} \beta(t) \left( -\frac{\epsilon_\theta(\mathbf{x}, t)}{\sqrt{1-\bar{\alpha}_t}} \right) \right] dt$$
+
+Simplifying gives us the **Final ODE Equation** that solvers like DPM-Solver use:
+$$\boxed{ \frac{d\mathbf{x}}{dt} = -\frac{1}{2}\beta(t) \left[ \mathbf{x} - \frac{\epsilon_\theta(\mathbf{x}, t)}{\sqrt{1-\bar{\alpha}_t}} \right] }$$
+
+#### **Interpretation of the ODE**
+
+Look at the boxed equation. It describes the velocity of the image as we move from Noise ($t=T$) to Data ($t=0$).
+
+* **The Term $\frac{\epsilon_\theta}{\sqrt{1-\bar{\alpha}}}$:** This is the scaled noise prediction.
+* **The Term $(x - \text{Noise})$:** This estimates the "Clean Image" .
+* **The Equation says:** "At every moment, move the image $x$ towards the estimated clean image $x_0$, scaled by the noise rate $\beta(t)$."
+
+---
+
+### **How ODE Solvers Skip Steps**
+
+Once we define the process as an ODE:
+$$
+\frac{dx}{dt} = f(x, t)
+$$
+Our goal is to find $x(0)$ given $x(T)$. This is exactly what ODE Solvers do.
+
+1. **Euler Method (DDPM / Ancestral)** is the naive approach.
+    - Logic: "I am at $t=1000$. The slope points that way. I will take a tiny step."
+    - Math: $x_{t-1} = x_t - \text{slope} \times \Delta t$.
+    - Problem: It assumes the curve is a straight line. Since the diffusion curve is curved, taking a big step creates huge "Truncation Error." You fall off the curve.
+    - Result: You assume you need $\Delta t = 0.001$ (1,000 steps).
+2. Method 2: Higher-Order Solvers (Heun, Runge-Kutta, DPM-Solver) are "smart" solvers.
+    - Logic: "I am at $t=1000$. Let me look at the slope here, AND estimate the slope at $t=950$, AND check the curvature."
+    - Mechanism (Taylor Expansion): They use derivatives of the gradient to predict how the curve bends.
+    - Result: They can accurately predict where the curve will be in a massive jump (e.g., $t=1000 \to t=950$).
+    - Impact: We can reduce inference from 1,000 steps to 10-25 steps with almost no loss in quality.
+
+More formally, since we now have a function $\frac{dx}{dt} = \Phi(x, t)$, we can use numerical integration.
+
+Instead of taking 1,000 tiny Euler steps:
+$$x_{t-\Delta t} \approx x_t - \Phi(x_t, t)\Delta t$$
+
+We use a **Runge-Kutta** solver that looks ahead:
+$$\begin{align}
+k_1 &= \Phi(x_t, t) \\
+k_2 &= \Phi(x_t + \frac{h}{2}k_1, t + \frac{h}{2}) \\
+x_{t-h} &= x_t - h \cdot k_2 + O(h^3)
+\end{align}$$
+
+Because the error term is cubic $O(h^3)$ instead of linear $O(h)$, we can make the step size $h$ **massive** (skipping 50 steps at a time) while keeping the error low.
+
+### Why use SDE Solvers? (Stochastic Differential Equations)
+
+If ODEs are faster (20 steps), why do we sometimes still use SDEs (adding noise during inference)?
+
+1. Error Correction: The ODE path is a tightrope.
+    - If the neural network makes a slight error in prediction at step $t=900$, the ODE solver essentially "falls off the tightrope." It drifts into a weird region of latent space and creates artifacts.
+    - SDEs are forgiving. By adding random noise at each step ($+ \sigma z$), we effectively "shake" the state back into the high-probability manifold. It corrects errors.
+2. Quality & Texture (The "Blur" Problem)
+    - ODE: Because it follows the *mean* path, it tends to result in slightly "averaged" or "conservative" images.
+    - SDE: The added noise injects high-frequency details (grain/texture). SDE-generated images often look sharper and more realistic, even if they take longer to generate.
+
+----
 
 ## **Text Guided Generation**
 
@@ -724,6 +834,97 @@ Used by: DALL-E 1, VQ-GAN, Parti, MUSE, VQ-Diffusion.
 - Embedding: Now we can use a standard Embedding Table, just like in NLP. Token #45 looks up vector #45.
 - Generation: You generally use an Autoregressive Transformer (like GPT) to predict the next token, or a Masked Transformer (like BERT) to fill in missing tokens.
 
+---
+### **Classifier-Free Guidance (CFG)**
+
+This is the most important trick in modern generative AI. It is the "magic dial" that forces the model to actually listen to your prompt.
+
+#### **The Problem**
+
+If you just train $p(x|c)$, the model often ignores the text. It might generate a generic high-quality image that vaguely matches the text but lacks specific details. It prioritizes "looking real" over "matching the prompt."
+
+#### **The Solution**
+
+We train a single model to do **two** things at once:
+1. Conditioned: $\epsilon_\theta(x_t, t, c)$ (Predict noise given text).
+2. Unconditioned: $\epsilon_\theta(x_t, t, \emptyset)$ (Predict generic noise).
+    - Note: During training, we randomly replace the text $c$ with an empty string $\emptyset$ 10-20% of the time (Dropout) to teach the model both tasks.
+
+#### **Inference (The Extrapolation)**
+
+During sampling, we calculate the final noise prediction $\tilde{\epsilon}$ by **extrapolating** the difference between the two predictions:
+$$
+\tilde{\epsilon} = \underbrace{\epsilon_\theta(x_t, t, \emptyset)}_{\text{Generic Concept}} + w \cdot \underbrace{(\epsilon_\theta(x_t, t, c) - \epsilon_\theta(x_t, t, \emptyset))}_{\text{The "Textness" Vector}}
+$$
+- $w$ (Guidance Scale): A scalar (usually $7.0 \sim 10.0$).
+- Intuition: We calculate the direction that moves the image away from "generic genericness" and towards "your prompt." Then we push hard (multiply by $w$) in that direction.
+- Result: High $w$ = Strict adherence to prompt (but can burn/fry the image). Low $w$ = Creative/ignored prompt.
+
+
+### **Latent Diffusion Models (LDM / Stable Diffusion)**
+
+Standard diffusion (like DDPM) operates in Pixel Space.
+- Input: $512 \times 512 \times 3$ image.
+- Cost: Extremely expensive. Every step processes millions of pixels.
+
+Latent Diffusion (Rombach et al., 2022) moves the process to Latent Space.
+
+#### **The Architecture**
+
+1. VAE Compression: Train a standard VAE (Encoder $\mathcal{E}$, Decoder $\mathcal{D}$) to compress an image $x$ into a latent code $z = \mathcal{E}(x)$.
+    - Example: $512 \times 512 \times 3 \to 64 \times 64 \times 4$. (Factor of 48x compression).
+2. Diffusion in Latent Space: Train the Diffusion Model (U-Net/DiT) to generate $z_t$, not $x_t$.
+    - The "Image" the diffusion model sees is essentially a dense feature map.
+3. Decoding: Once the Diffusion loop finishes and outputs a clean latent $z_0$, run it through the VAE Decoder $x = \mathcal{D}(z_0)$.
+
+Why? Efficiency. Running 50 steps on a $64 \times 64$ tensor is feasible on consumer GPUs. Running on $512 \times 512$ is not.
+
+### **SOTA Video Generation (Sora & The Future)**
+
+How do we move from Images (2D) to Video (3D: Time + Height + Width)?
+
+**The Old Way (2.5D U-Nets)**:Take a standard Image U-Net and add "Temporal Attention" layers that look across frames. This works for short clips but lacks global coherence.
+
+**The New Way (Sora / DiT-based)**: Spacetime Patches Models like Sora treat video as a purely Sequence Modeling problem, utilizing the scalability of the DiT.
+
+**Workflow**
+1. Spacetime Latent: Compress the video (pixels) into a latent volume using a Video VAE.
+    - Input (Raw Video): $(T_{frames}, H, W, C)$, e.g. 2 seconds at 30fps, $256 \times 256$ resolution.
+        - Shape: (Batch=1, Channels=3, Frames=60, Height=256, Width=256)
+    - 3D VAE Compression:
+        - Space Compression: $8\times$ (Standard SD).
+        - Time Compression: $4\times$ (Compresses 4 frames into 1 latent time-step).
+        - Latent Channels: $4$ (Standard).
+    - Output (Latent Volume):
+        - Frames: $60 / 4 = 15$.
+        - Height: $256 / 8 = 32$.
+        - Width: $256 / 8 = 32$.
+        - Latent Shape: (1, 4, 15, 32, 32)
+2. 3D Patching:
+    - Instead of cutting 2D squares from an image, we cut 3D Cubes (Spacetime Patches) from the video volume.
+    - We define a Patch Size for the 3 dimensions $(t, h, w)$.
+        - Patch dimensions: $(t_p=1, h_p=2, w_p=2)$.
+        - Note: Usually $t_p=1$ or $2$ in latent space. If $t_p=1$, it grabs 1 latent frame (which represents 4 real frames).
+        - Let's use $(1, 2, 2)$ for this example.
+        - We slide this $1 \times 2 \times 2$ cutter over the $15 \times 32 \times 32$ volume.
+    - A patch represents "This region of pixels for these 5 frames."
+    - Tokens
+        - Temporal Tokens ($N_t$): $\frac{\text{Latent Frames}}{\text{Patch Time}} = \frac{15}{1} = 15$
+        - Height Tokens ($N_h$): $\frac{\text{Latent Height}}{\text{Patch Height}} = \frac{32}{2} = 16$
+        - Width Tokens ($N_w$): $\frac{\text{Latent Width}}{\text{Patch Width}} = \frac{32}{2} = 16$
+        - Total Tokens: $15 \times 16 \times 16 = \mathbf{3,840 \text{ tokens}}$.
+3. Linearization: Flatten these cubes into a massive long sequence of tokens.
+    - Input Sequence: `[Batch, 3840, Token_Dim]`
+    - Each token represents a volume of: $Channels=4$, $Time=1$, $Height=2$, $Width=2$, with Raw Data Size: $4 \times 1 \times 2 \times 2 = 16$ values.
+    - Projection: We map these 16 values to the Transformer Dimension $D_{model}$ (e.g., 1024) using a Linear Layer.
+        - Mapping token dim (16) to model dim (1024) to get `[Batch, 3840, Model_Dim]`
+4. DiT Processing:
+    - Feed the sequence into a standard DiT.
+    - The Transformer's Self-Attention handles the physics. It learns that "The ball in Patch A (Frame 1) must move to Patch B (Frame 2)."
+    - It doesn't "know" it's processing video; it just sees tokens relating to each other.
+5. Scaling: Because DiT scales with compute (Scaling Laws), simply throwing more GPUs and data at this architecture results in realistic physics, consistency, and object permanence.
+
+Sora is a game changer since it proves that if you treat video generation as "Denoising 3D Noise" using a Transformer, you automatically get physical simulation properties emerging from the data, without explicitly programming physics engines.
 
 
 
