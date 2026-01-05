@@ -105,7 +105,9 @@ Reconstruction loss induces two complementary behaviors:
 VAE enables: $z \sim p(z) = \mathcal N(0, I) \quad\Rightarrow\quad x \sim p_\phi(x\mid z)$.
 
 One common training objective (ELBO):
-$$\log p_\phi(x)\ \ge\ \mathbb E_{q_\theta(z\mid x)}[\log p_\phi(x\mid z)] - \mathrm{KL}(q_\theta(z\mid x)\,\|\,p(z))$$
+$$
+\log p_\phi(x)\ \ge\ \mathbb E_{q_\theta(z\mid x)}[\log p_\phi(x\mid z)] - \mathrm{KL}(q_\theta(z\mid x)\,\|\,p(z))
+$$
 
 
 ## How to Train an AE so that latent follows a specific distribution
@@ -139,7 +141,10 @@ $$\log p_\phi(x)\ \ge\ \mathbb E_{q_\theta(z\mid x)}[\log p_\phi(x\mid z)] - \ma
 		* By Maximum Likelihood, minimize the negative log likelihood of $z$ as computed from a standard Gaussian.
 
 ### Problem with Pushing latent to Zero
-Minimizing negative log likelihood of latent $z$ for our MLE (MSE/KL loss), we are minimizing $$ \min \sum_z - \log \mathcal N(z; 0, I) = \min 0.5 \sum_x |z|^2 = \min \sum_X | E(X; \theta)| ^2$$
+Minimizing negative log likelihood of latent $z$ for our MLE (MSE/KL loss), we are minimizing 
+$$ 
+\min \sum_z - \log \mathcal N(z; 0, I) = \min 0.5 \sum_x |z|^2 = \min \sum_X | E(X; \theta)| ^2
+$$
 So, the objective now becomes $$ \min_{\theta, \phi} \sum_X |X-\hat X|^2 + \lambda |E(X; \theta)|^2 $$ Yet this simple formulation does not adequately capture the variation in the data. Pushing latent to **Zero**.
 
 The generative portion of the model is just the decoder; the range of $z$ it accepts is still very small, around zero, and others are garbage.
@@ -187,7 +192,9 @@ Even if we capture the dimensionality of the principal manifold perfectly, there
 The ELBO is the objective function we actually maximize when training a VAE.Since we cannot calculate the true probability of the data (the "Evidence" $\log p(u)$) directly because the integral over all latents is intractable, we optimize this proxy instead.
 
 From Jensen's Inequility:
-$$\text{ELBO} = \mathbb{E}_{q} \left[ \log \frac{p(x, z)}{q(z \mid x)} \right]$$
+$$
+\text{ELBO} = \mathbb{E}_{q} \left[ \log \frac{p(x, z)}{q(z \mid x)} \right]
+$$
 We essentially have,
 $$\begin{align}
 \text{ELBO} &= \mathbb{E}_{q} \left[ \log \frac{p(x \mid z) p(z)}{q(z \mid x)} \right] \\
@@ -254,15 +261,20 @@ This integral is effectively calculating the **weighted average reconstruction q
 - The Archer ($\theta$): The Decoder.
 - The Shot ($z$): The latent code provided by the Encoder.
 - The Arrow Landing Spot ($\hat{u}$): The Reconstruction.
-- The Likelihood $p_\theta(u \mid z)$ is the Score. It measures the distance between the Arrow ($\hat{u}$) and the Target ($u$).$$\text{Log Likelihood} \propto - \| \text{Target}(u) - \text{Arrow}(\hat{u}) \|^2$$
+- The Likelihood $p_\theta(u \mid z)$ is the Score. It measures the distance between the Arrow ($\hat{u}$) and the Target ($u$).
+$$
+\text{Log Likelihood} \propto - \| \text{Target}(u) - \text{Arrow}(\hat{u}) \|^2
+$$
 So, $p_\theta(u \mid z)$ is the value we maximize. We do this by moving the Arrow ($\hat{u}$) closer to the Target ($u$). $\hat u = f_\theta(z), u \sim \mathcal{N}(\hat u, I)$, i.e. $p_\theta(u \mid z) = p(u \mid \psi) = \mathcal{N}(u; \hat u, \sigma^2I)$
 
 **Goal**: Show that minimizing the KL divergence between the Approximate Posterior $q_\phi(z \mid u)$ and the True Posterior $p_\theta(z \mid u)$ is equivalent to maximizing the ELBO (Evidence Lower Bound).
 
-$$\begin{align}
+$$
+\begin{align}
 \mathrm{KL}\big(q_\phi(z \mid u) \,\|\, p_\theta(z \mid u)\big) &= \mathbb{E}_{z \sim q_\phi} \left[ \log \frac{q_\phi(z \mid u)}{p_\theta(z \mid u)} \right] \\
 &= \mathbb{E}_{z \sim q_\phi} [\log q_\phi(z \mid u)] - \mathbb{E}_{z \sim q_\phi} [\log p_\theta(z \mid u)]
-\end{align}$$
+\end{align}
+$$
 Apply Bayes' Rule to the true posterior: $p_\theta(z \mid u) = \frac{p_\theta(u \mid z) p(z)}{p_\theta(u)}$.
 $$
 \begin{align}
@@ -271,11 +283,15 @@ $$
 \end{align}
 $$
 Now, rearrange the terms to group the KL Divergence to Prior and the Reconstruction Loss:
-$$\begin{align}
+$$
+\begin{align}
 \mathrm{KL}\big(q_\phi(z \mid u) \,\|\, p_\theta(z \mid u)\big) &= \underbrace{\left( \mathbb{E}_{z \sim q_\phi} [\log q_\phi(z \mid u)] - \mathbb{E}_{z \sim q_\phi} [\log p(z)] \right)}_{\mathrm{KL}(q_\phi(z \mid u) \,\|\, p(z))} - \mathbb{E}_{z \sim q_\phi} [\log p_\theta(u \mid z)] + \log p_\theta(u)
-\end{align}$$
+\end{align}
+$$
 Thus, the relationship is:
-$$\log p_\theta(u) = \underbrace{\mathbb{E}_{z \sim q_\phi} [\log p_\theta(u \mid z)] - \mathrm{KL}\big(q_\phi(z \mid u) \,\|\, p(z)\big)}_{\text{ELBO}(\theta, \phi)} + \underbrace{\mathrm{KL}\big(q_\phi(z \mid u) \,\|\, p_\theta(z \mid u)\big)}_{\ge 0}$$
+$$
+\log p_\theta(u) = \underbrace{\mathbb{E}_{z \sim q_\phi} [\log p_\theta(u \mid z)] - \mathrm{KL}\big(q_\phi(z \mid u) \,\|\, p(z)\big)}_{\text{ELBO}(\theta, \phi)} + \underbrace{\mathrm{KL}\big(q_\phi(z \mid u) \,\|\, p_\theta(z \mid u)\big)}_{\ge 0}
+$$
 
 Since $\log p_\theta(u)$, the **evidence**, is **fixed** for a given data point, maximizing ELBO is mathematically equivalent to minimizing the divergence between approxmiate posterior and the true posterior
 $$\begin{align}
@@ -306,7 +322,9 @@ The first term is **reconstruction**, maximizing likelihood of data given latent
         p_\theta(x \mid z) = \mathcal{N}(x; \mu=D(z), \Sigma=C)
         $$
         - To decide variance $C$,
-        $$\log p(x \mid z) \propto -\frac{1}{2} (x - D(z))^T C^{-1} (x - D(z)) - \frac{1}{2} \log |C|$$
+        $$
+        \log p(x \mid z) \propto -\frac{1}{2} (x - D(z))^T C^{-1} (x - D(z)) - \frac{1}{2} \log |C|
+        $$
         We could
             - Learn it (Heteroscedastic): The Decoder outputs both the mean $\mu_x$ and the variance $\sigma_x^2$ for every pixel.
                 - Pros: The model learns which parts of the image are detailed (low variance) vs. noisy/texture (high variance).
@@ -314,7 +332,10 @@ The first term is **reconstruction**, maximizing likelihood of data given latent
             - Fix it (Homoscedastic) \[**standard**\]
                 - We simply assume $C = \sigma^2 I$ is a fixed scalar constant (hyperparameter) for all data points.
                 - If $C = I$ (identity matrix), the term $\log |C|$ becomes constant and vanishes from the optimization.
-                - The likelihood term simplifies purely to:$$\mathcal{L}_{\text{recon}} \propto - \| x - D(z) \|^2$$
+                - The likelihood term simplifies purely to:
+                $$
+                \mathcal{L}_{\text{recon}} \propto - \| x - D(z) \|^2
+                $$
                 - Result: This is why VAEs are trained with MSE Loss. MSE is just the negative log-likelihood of a Gaussian with fixed variance.
 
 
@@ -389,7 +410,9 @@ We compress the data step-by-step.
 * **Step 1:** Map Image $x$ to $z_1$ (Low-level features, like edges).
 * **Step 2:** Map $z_1$ to $z_2$ (Mid-level shapes).
 * **Step T:** Map $z_{T-1}$ to $z_T$  (High-level semantics, "Cat").
-$$q(z_{1:T} \mid x) = q(z_1 \mid x) \times q(z_2 \mid z_1) \times \dots \times q(z_T \mid z_{T-1})$$
+$$
+q(z_{1:T} \mid x) = q(z_1 \mid x) \times q(z_2 \mid z_1) \times \dots \times q(z_T \mid z_{T-1})
+$$
 We are assuming a **Markov Chain**: $z_{t}$ only depends on $z_{t-1}$ for $t > 1$.
 
 ### **B. The Decoder (Top-Down / Generation)**
@@ -399,7 +422,9 @@ We reconstruct the image step-by-step.
 * **Step 1:** Sample abstract concept $z_T$.
 * **Step 2:** Flash out details to get $z_{T-1}$.
 * **Final Step:** Generate pixels $x$ from $z_1$.
-$$p(x, z_{1:T}) = p(z_T) \times p(z_{T-1} \mid z_T) \times \dots \times p(x \mid z_1)$$
+$$
+p(x, z_{1:T}) = p(z_T) \times p(z_{T-1} \mid z_T) \times \dots \times p(x \mid z_1)
+$$
 
 ---
 
@@ -438,7 +463,9 @@ To make the math clean (and to unlock Diffusion Models), we perform a trick: rew
 - Idea: "Given that I'm at the noisy state $z_t$, and I know the original image $x$, what was the previous step $z_{t-1}$?"
 
 **Derivation**: Using Bayes' Rule:
-$$q(z_{t-1} \mid z_t) = \frac{q(z_t \mid z_{t-1}) \, q(z_{t-1})}{q(z_t)}$$
+$$
+q(z_{t-1} \mid z_t) = \frac{q(z_t \mid z_{t-1}) \, q(z_{t-1})}{q(z_t)}
+$$
 
 Why condition on $x$? The terms $q(z_{t-1})$ and $q(z_t)$ are marginal probabilities. In a Markov chain starting from data $x$, these marginals depend entirely on the starting point $x$.
 - Without $x$, $q(z_t)$ is a mixture over the entire dataset (very complex).
@@ -457,10 +484,15 @@ We defined the forward process as **Gaussian Noise**:
 3. $q(z_{t-1} \mid x)$ is Gaussian.
 Since we are dividing/multiplying Gaussians, the result $q(z_{t-1} \mid z_t, x)$ is also a Gaussian.
 
-This allows us to write the ELBO term as a valid KL Divergence:$$D_{KL} \Big( \underbrace{q(z_{t-1} \mid z_t, x)}_{\text{Encoder Reverse (Truth)}} \;\|\; \underbrace{p_\theta(z_{t-1} \mid z_t)}_{\text{Decoder Reverse (Prediction)}} \Big)$$
+This allows us to write the ELBO term as a valid KL Divergence:
+$$
+D_{KL} \Big( \underbrace{q(z_{t-1} \mid z_t, x)}_{\text{Encoder Reverse (Truth)}} \;\|\; \underbrace{p_\theta(z_{t-1} \mid z_t)}_{\text{Decoder Reverse (Prediction)}} \Big)
+$$
 
 Now we can rewrite the ELBO using this formulation (which is standard in Diffusion math), the sum becomes a beautiful chain of KL divergences:
-$$\text{ELBO} = \underbrace{\mathbb{E}[\log p(x \mid z_1)]}_{\text{Reconstruction}} - \sum_{t=2}^T \underbrace{D_{KL}\Big( q(z_{t-1} \mid z_t, x) \,\|\, p(z_{t-1} \mid z_t) \Big)}_{\text{Denoising Matching}} - \underbrace{D_{KL}(q(z_T \mid x) \| p(z_T))}_{\text{Prior Matching}}$$
+$$
+\text{ELBO} = \underbrace{\mathbb{E}[\log p(x \mid z_1)]}_{\text{Reconstruction}} - \sum_{t=2}^T \underbrace{D_{KL}\Big( q(z_{t-1} \mid z_t, x) \,\|\, p(z_{t-1} \mid z_t) \Big)}_{\text{Denoising Matching}} - \underbrace{D_{KL}(q(z_T \mid x) \| p(z_T))}_{\text{Prior Matching}}
+$$
 
 This equation is the foundation of Diffusion Models. It says: "Make your learned reverse step $p$ match the true mathematical reverse step $q$."
 
@@ -680,10 +712,14 @@ $$
 ### **The Score Function ($\nabla \log p$)**
 
 The "magic" of diffusion is based on a quantity called the **Score Function**: the gradient of the log-density of the data.
-$$s(\mathbf{x}, t) = \nabla_\mathbf{x} \log p_t(\mathbf{x})$$
+$$
+s(\mathbf{x}, t) = \nabla_\mathbf{x} \log p_t(\mathbf{x})
+$$
 - *Intuition:* This vector points towards the "high probability" regions (clean images).
 - **Crucial Link:** Our neural network  is actually learning this Score Function!
-    $$\nabla_\mathbf{x} \log p_t(\mathbf{x}) \approx -\frac{\epsilon_\theta(\mathbf{x}, t)}{\sigma(t)} = -\frac{\epsilon_\theta(\mathbf{x}, t)}{\sqrt{1-\bar{\alpha}_t}}$$
+    $$
+    \nabla_\mathbf{x} \log p_t(\mathbf{x}) \approx -\frac{\epsilon_\theta(\mathbf{x}, t)}{\sigma(t)} = -\frac{\epsilon_\theta(\mathbf{x}, t)}{\sqrt{1-\bar{\alpha}_t}}
+    $$
 - Predicting noise ($\epsilon$) is mathematically identical to calculating the gradient of the data density ($\nabla \log p$).
 
 ---
@@ -693,16 +729,22 @@ $$s(\mathbf{x}, t) = \nabla_\mathbf{x} \log p_t(\mathbf{x})$$
 Song et al. (2021) proved that for any SDE of the form $dx = f(x,t)dt + g(t)dw$, there exists an **ODE** that shares the *exact same marginal probability densities* $p_t(x)$.
 
 The general formula for this ODE is:
-$$d\mathbf{x} = \left[ \underbrace{f(\mathbf{x}, t)}_{\text{Drift}} - \frac{1}{2} \underbrace{g(t)^2}_{\text{Diffusion}} \underbrace{\nabla_\mathbf{x} \log p_t(\mathbf{x})}_{\text{Score}} \right] dt$$
+$$
+d\mathbf{x} = \left[ \underbrace{f(\mathbf{x}, t)}_{\text{Drift}} - \frac{1}{2} \underbrace{g(t)^2}_{\text{Diffusion}} \underbrace{\nabla_\mathbf{x} \log p_t(\mathbf{x})}_{\text{Score}} \right] dt
+$$
 
 Now, let's **tighten the math** by plugging in our Diffusion variables.
 1. **Substitute Drift :** $f(x,t)$: $-\frac{1}{2}\beta(t)\mathbf{x}$
 2. **Substitute Diffusion :** $g(t)$: $\sqrt{\beta(t)}$
 3. **Substitute Score :** $\nabla \log p$: $-\frac{\epsilon_\theta(\mathbf{x}, t)}{\sqrt{1-\bar{\alpha}_t}}$
-$$d\mathbf{x} = \left[ -\frac{1}{2}\beta(t)\mathbf{x} - \frac{1}{2} \beta(t) \left( -\frac{\epsilon_\theta(\mathbf{x}, t)}{\sqrt{1-\bar{\alpha}_t}} \right) \right] dt$$
+$$
+d\mathbf{x} = \left[ -\frac{1}{2}\beta(t)\mathbf{x} - \frac{1}{2} \beta(t) \left( -\frac{\epsilon_\theta(\mathbf{x}, t)}{\sqrt{1-\bar{\alpha}_t}} \right) \right] dt
+$$
 
 Simplifying gives us the **Final ODE Equation** that solvers like DPM-Solver use:
-$$\boxed{ \frac{d\mathbf{x}}{dt} = -\frac{1}{2}\beta(t) \left[ \mathbf{x} - \frac{\epsilon_\theta(\mathbf{x}, t)}{\sqrt{1-\bar{\alpha}_t}} \right] }$$
+$$
+\boxed{ \frac{d\mathbf{x}}{dt} = -\frac{1}{2}\beta(t) \left[ \mathbf{x} - \frac{\epsilon_\theta(\mathbf{x}, t)}{\sqrt{1-\bar{\alpha}_t}} \right] }
+$$
 
 #### **Interpretation of the ODE**
 
@@ -736,14 +778,18 @@ Our goal is to find $x(0)$ given $x(T)$. This is exactly what ODE Solvers do.
 More formally, since we now have a function $\frac{dx}{dt} = \Phi(x, t)$, we can use numerical integration.
 
 Instead of taking 1,000 tiny Euler steps:
-$$x_{t-\Delta t} \approx x_t - \Phi(x_t, t)\Delta t$$
+$$
+x_{t-\Delta t} \approx x_t - \Phi(x_t, t)\Delta t
+$$
 
 We use a **Runge-Kutta** solver that looks ahead:
-$$\begin{align}
+$$
+\begin{align}
 k_1 &= \Phi(x_t, t) \\
 k_2 &= \Phi(x_t + \frac{h}{2}k_1, t + \frac{h}{2}) \\
 x_{t-h} &= x_t - h \cdot k_2 + O(h^3)
-\end{align}$$
+\end{align}
+$$
 
 Because the error term is cubic $O(h^3)$ instead of linear $O(h)$, we can make the step size $h$ **massive** (skipping 50 steps at a time) while keeping the error low.
 
