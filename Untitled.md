@@ -382,8 +382,6 @@ In the "naive" pipeline approach described earlier, we treated the entire batch 
 
 To fix this, we split the global batch $B$ into smaller **micro-batches** that flow through the system independently.
 
-### **2.5.1 Global View: Keeping Workers Busy**
-
 Consider a 2-GPU pipeline with a global batch size of 16.
 
 Instead of sending all 16 sequences at once, we split them into 2 micro-batches of 8 sequences each.
@@ -401,21 +399,51 @@ Instead of sending all 16 sequences at once, we split them into 2 micro-batches 
 
 By slicing the work, we minimize the time where workers are waiting on peers. This "pipelining" effect is the primary driver of efficiency in multi-device inference.
 
+---
+
+# **3. Hiding P2P Latency -  Feasibility of Intra-Device Pieplining**
+## **3.1 Hiding Latency: The 3-Substep Model**
+
+Micro-batching solves the "idle worker" problem, but on consumer hardware, we face a second bottleneck: **Slow Interconnects (P2P)**.
+
+If a device computes a micro-batch and then stops to transfer data over a slow PCIe/LAN connection, we are still wasting time. We want to hide this communication cost.
+
+We can achieve this by pipelining **within a single device**. i.e. other than **inter-devices** micro-batch, we introduce **Intra-Device** micro-bathching.
+
+By using asynchronous streams, a single device can overlap different types of work. While the "Compute Engine" works on the _current_ micro-batch, the "Copy Engine" (DMA) can transmit the _previous_ micro-batch.
+
+To analyze this, we model the execution of a single stage as **three distinct substeps** per micro-batch:
+
+1. Decode ($t_{\text{decode}}$): The local forward pass (Compute + HBM access).
+    
+    $$[B_{\text{micro}}, 1, d_{\text{model}}] \rightarrow [B_{\text{micro}}, 1, d_{\text{model}}]$$
+    
+2. **Upload ($t_{\text{upload}}$):** Moving the activation tensor from GPU memory to the network buffer.
+    
+3. **P2P ($t_{\text{p2p}}$):** The "on-the-wire" transmission to the next device.
+    
+
+#### **Effective Stage Time**
+
+With asynchronous streams (e.g., CUDA streams or non-blocking network ops), these three steps happen in parallel for _different_ micro-batches.
+
+- While computing **MB $k$**,
+    
+- We are uploading **MB $k-1$**,
+    
+- And the network is transmitting **MB $k-2$**.
+    
+
+Thus, the time a stage takes to clear a micro-batch is not the sum of these steps, but the **maximum**:
+
+$$t_{\text{stage}} \approx \max\big( t_{\text{decode}},\ t_{\text{upload}},\ t_{\text{p2p}} \big)$$
+
+_Note: We define $t_{\text{decode}} = \max(t_{\text{io}},\ t_{\text{compute}})$ as established in Section 1._
+
+This is our "holy grail" for edge inference: **If we can keep $t_{\text{decode}}$ slower than the network transmission ($t_{\text{p2p}}$), the slow network effectively disappears.** The GPU never stops computing.
 
 
 
-To minimize bubbles (idle time), inputs are split into microbatches—smaller sub-batches that flow independently, enabling concurrent execution and overlap across stages. Also, we use asynchronous threads or streams (e.g., MPI/NCCL non-blocking ops) to overlap compute with communication.
-
-To minimize the "stop-and-wait" bubbles inherent in naive pipeline parallelism, we employ **Micro-Batching**. Instead of processing the entire global batch $B$ as a single monolithic tensor, we slice it into $M$ smaller micro-batches of size $B_{\text{micro}}$.
-
-For a **single microbatch** on one device, the flow looks like:
-
-1. **Compute - r**un the local layers on the incoming activations:
-    $[B_{\text{micro}}, T, d_{\text{model}}] \rightarrow [B_{\text{micro}}, T, d_{\text{model}}]$.
-2. **Upload -** Enqueue the output activations to be sent to next peer (**non-blocking** send).
-3. **P2P (on the wire) -** the activations move over NVLink / PCIe / Ethernet / Internet to the next device.
-
-On the **receiving** side, **download** is posted as a non-blocking receive and overlapped with decode of previous microbatches, so we do **not** include a separate $t_{\text{download}}$ in the critical path.
 
 For throughput analysis, that leaves us with **three potentially blocking substeps per stage and per microbatch**:
 
