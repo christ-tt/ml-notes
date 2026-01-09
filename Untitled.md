@@ -443,63 +443,21 @@ We assume:
 
 
 ![[Untitled-{{date}}-{{time}}.png]]
-#### **Scenario A: Naive Pipeline (Blocking P2P)**
 
-We process the full batch.
-
-- **Sequence:** GPU 0 Compute (4) $\to$ P2P ($P$) $\to$ GPU 1 Compute (4).
-    
-- Total Latency:
-    
-    $$4 + 4 + P = \mathbf{8 + P}$$
-    
-- **Steady State Cycle Time:** The bottleneck stage takes $4 + P$.
-    
-
-#### **Scenario B: Micro-Batching (MB=2, Blocking P2P)**
-
-We split the workload into 2 micro-batches.
-
-- **P2P Cost per MB:** Since the data size is halved, the P2P time is $P/2$.
-    
-- **Sequence:**
-    
-    1. GPU 0 computes MB1 (3 blocks).
-        
-    2. GPU 0 sends MB1 ($P/2$).
-        
-    3. GPU 1 receives MB1 & starts computing. (Simultaneously, GPU 0 starts MB2).
-        
-
-Let's trace the critical path (Latency to finish all 16 sequences):
-
-1. **Start:** GPU 0 MB1 (3 blocks).
-    
-2. **Transfer:** P2P MB1 ($P/2$).
-    
-3. **Middle:** GPU 1 MB1 (3 blocks).
-    
-4. **Transfer:** P2P MB2 ($P/2$). _(Must wait for GPU 0 to finish computing MB2 and send it)_.
-    
-5. **End:** GPU 1 MB2 (3 blocks).
-    
-
-$$3 + 3 + 3 + P = \mathbf{9 + P}$$
-
-_(Note: The total P2P time is still $P$, but the compute time stretched from 8 to 9 due to the efficiency tax.)_
-
-Let the red blocks be P2P, and we see that, no matter how large is it, in steady phase, we will end up with 
-
-If P2P takes 1 block (1/4 of decode time for max batch), we will have 
-* naive implementation takes 10 blocks to output 16 tokens
-* MB=2 takes 9 blocks.
-`P2P + N_Micro_batch * T_Micro_batch`
+In Steady State, Naive Pipeline takes $8 + 2 \times P$ blocks; where as Micro Batching takes $2 \times (3 + P)$ blocks.
 
 
 ![[Untitled-{{date}}-{{time}}-1.png]]
+
 ![[Untitled-{{date}}-{{time}}-2.png]]
 
+From the table below, we show that as P2P increases, the throughput improvement of using micro-batches decreases.
 
+| P   | MB  | Naive | Improvement |
+| --- | --- | ----- | ----------- |
+| 1   | 8   | 10    | 25%         |
+| 4   | 14  | 16    | 14%         |
+| 8   | 22  | 24    | 9%          |
 
 
 ---
