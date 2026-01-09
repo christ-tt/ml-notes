@@ -141,8 +141,8 @@ $$
 		* By Maximum Likelihood, minimize the negative log likelihood of $z$ as computed from a standard Gaussian.
 
 ### Problem with Pushing latent to Zero
-Minimizing negative log likelihood of latent $z$ for our MLE (MSE/KL loss), we are minimizing 
-$$ 
+Minimizing negative log likelihood of latent $z$ for our MLE (MSE/KL loss), we are minimizing
+$$
 \min \sum_z - \log \mathcal N(z; 0, I) = \min 0.5 \sum_x |z|^2 = \min \sum_X | E(X; \theta)| ^2
 $$
 So, the objective now becomes $$ \min_{\theta, \phi} \sum_X |X-\hat X|^2 + \lambda |E(X; \theta)|^2 $$ Yet this simple formulation does not adequately capture the variation in the data. Pushing latent to **Zero**.

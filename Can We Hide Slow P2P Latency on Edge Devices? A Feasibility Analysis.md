@@ -1,3 +1,11 @@
+---
+tags:
+  - ML
+  - Infra
+  - Parallax
+  - Work
+created: 2026-01-08
+---
 # 0. Overview
 
 In this tech blog, we systematically analyze the feasibility of hosting Large Language Models (LLMs) on edge devices using **Pipeline Parallelism (PP)**. We specifically target scenarios where **Tensor Parallelism (TP)** is unfeasible due to slow interconnects (e.g., PCIe, Ethernet, or WiFi).
@@ -5,9 +13,9 @@ In this tech blog, we systematically analyze the feasibility of hosting Large La
 We explore two specific optimization strategies to maximize throughput:
 
 1. **Global Micro-Batching (Inter-Device):** Splitting the workload between different GPUs to minimize idle time ("bubbles").
-    
+
 2. **Local Micro-Batching (Intra-Device):** Splitting the workload on a _single_ GPU to overlap Compute, Upload, and P2P transfer, aiming to hide network latency.
-    
+
 
 **The Executive Summary:** We demonstrate that while **Global Micro-Batching** is essential for multi-device utilization, **Local Micro-Batching** is largely a "performance trap" on memory-bound consumer hardware.
 
@@ -22,32 +30,32 @@ Therefore, for consumer hardware, the optimal strategy is **Global Micro-Batchin
 ### **Final conclusions (high-level):**
 
 - **TP is not feasible** on edge hardware (every layer requires all-reduce; PCIe/LAN latency kills performance).
-    
-- **PP is the only viable strategy** for model parallelism on consumer GPUs, just as in datacenters — TP is used only when NVLink/NVSwitch is available.
-    
-- **Global micro-batching** (inter-device pipelined execution) **works** and improves throughput.
-    
-- **Local micro-batching** (intra-device 3-stage overlap) **does not work**, because:
-    
-    - batch fragmentation must increase to enable overlap,
-        
-    - decode latency does **not** shrink with batch size (memory-bound regime),
-        
-    - weight streaming dominates, creating a **latency floor**, and
-        
-    - the GPU ends up “busy but useless,” repeatedly streaming the same weights for many tiny microbatches.
-        
-    
 
-  
+- **PP is the only viable strategy** for model parallelism on consumer GPUs, just as in datacenters — TP is used only when NVLink/NVSwitch is available.
+
+- **Global micro-batching** (inter-device pipelined execution) **works** and improves throughput.
+
+- **Local micro-batching** (intra-device 3-stage overlap) **does not work**, because:
+
+    - batch fragmentation must increase to enable overlap,
+
+    - decode latency does **not** shrink with batch size (memory-bound regime),
+
+    - weight streaming dominates, creating a **latency floor**, and
+
+    - the GPU ends up “busy but useless,” repeatedly streaming the same weights for many tiny microbatches.
+
+
+
+
 
 Therefore:
 
-  
+
 
 > **On consumer hardware, the only practical optimization is global pipeline parallelism with a moderate number of micro-batches. Local pipelining to hide P2P latency is not feasible and usually makes throughput worse.**
 
-  
+
 
 This frames the rest of the document: everything after Section 1 explains _why_ decode is memory-bound, and everything after Section 2 shows _why_ local pipelining fails despite appearing promising in theory.
 
@@ -111,25 +119,25 @@ $[M, K] \times [K, N] \to [M, N]$. From the hardware’s perspective, “running
 Within a decoder layer, most meaningful compute and memory traffic comes from two families of GEMMs:
 
 - **MLP GEMMs**
-    
+
     The feed-forward block uses large projections like
-    
+
     $[B\cdot S, d_{\text{model}}] \times [d_{\text{model}}, d_{\text{ff}}]$ (and the reverse).
-    
+
     These multiply big activation batches by **very large weight matrices**. They dominate **parameter size** and **FLOPs**, and their behavior flips between **compute-bound** (prefill, long sequences) and **memory-bound** (decode, small S) depending on batch and sequence length.
-    
+
 - **Attention GEMMs**
-    
+
     Attention consists of:
-    
+
     - Q/K/V projections (again, GEMMs similar to the MLP projections),
-        
+
     - the **score** computation $QK^\top$,
-        
+
     - and the **value mixing** $\text{softmax}(QK^\top)V$.
-        
+
         These are where **KV cache** and **sequence length** bite hardest. The score/value GEMMs touch $O(S^2)$, and tend to be **memory-bandwidth-bound**, especially in decode.
-        
+
 
 In the rest of this section, we therefore zoom in on:
 
@@ -292,9 +300,9 @@ TP splits the individual weight matrices (e.g., $W_Q, W_K, W_V, W_O, W_{up}, W_{
 Specifically, in a Transformer architecture, **every single layer** requires synchronization to aggregate partial results.
 
 - **Attention Block:** Requires an `All-Reduce` operation to sum the outputs of the attention heads.
-    
+
 - **MLP Block:** Requires an `All-Reduce` operation to sum the outputs of the feed-forward network.
-    
+
 
 For a model with $L$ layers, TP requires $2L$ synchronization steps per forward pass.
 
@@ -312,9 +320,9 @@ PP partitions the model by layers (e.g., Device 0 holds layers 0–29, Device 1 
 The advantages for edge hardware are clear:
 
 1. **Communication Frequency:** We only communicate at the "cut" points. For a 2-stage pipeline, we send data **once** per micro-batch (Device 0 $\to$ Device 1).
-    
+
 2. **Message Size:** While the message size (activations of shape $[B, S, d_{model}]$) is non-trivial, it is a single large burst rather than hundreds of tiny, latency-sensitive packets.
-    
+
 
 ## 2.3 The "Naive" Pipeline and the Bubble Problem
 
@@ -325,11 +333,11 @@ Consider the simplest implementation: Naive PP without Micro-batching.
 We take our maximum batch size (e.g., $B=16$) and process it as one monolithic block.
 
 1. **Time $0 \to t$:** Device 0 processes the batch. **Device 1 is idle (0% utilization).**
-    
+
 2. **Time $t$:** Device 0 finishes and sends activations to Device 1.
-    
+
 3. **Time $t \to 2t$:** Device 1 processes the batch. **Device 0 is idle (0% utilization)** (assuming it waits for the next request or cannot process the next batch until Device 1 is clear).
-    
+
 
 In this "stop-and-wait" execution model, at any given moment, only one GPU is working while the other waits for data.
 
@@ -337,7 +345,7 @@ $$\text{System Utilization} \approx \frac{1}{N_{\text{stages}}}$$
 
 For a 2-GPU setup, we sacrifice 50% of our theoretical peak compute to "bubbles" (idle time).
 
-To fix this, we need **Micro-batching**—slicing the batch into smaller chunks to keep multiple devices active simultaneously. 
+To fix this, we need **Micro-batching**—slicing the batch into smaller chunks to keep multiple devices active simultaneously.
 
 
 ---
@@ -355,13 +363,13 @@ Instead of sending all 16 sequences at once, we split them into 2 micro-batches 
 **The Flow:**
 
 1. **Step 1:** GPU 0 processes Micro-Batch 1 (MB1). GPU 1 is idle (unavoidable warm-up).
-    
+
 2. **Step 2:** GPU 0 passes MB1 to GPU 1.
-    
+
     - _Crucially_, GPU 0 does not wait. It immediately begins processing **Micro-Batch 2 (MB2)**.
-        
+
     - **Result:** Now **both** GPUs are working simultaneously. GPU 1 works on the first chunk (MB1), while GPU 0 prepares the second chunk (MB2).
-        
+
 
 By slicing the work, we minimize the time where workers are waiting on peers. This "pipelining" effect is the primary driver of efficiency in multi-device inference.
 
@@ -375,11 +383,11 @@ As established in previous section, decoding is memory-bandwidth bound, so we ar
 **Assumptions:**
 
 - **Hardware:** 2 GPU Pipeline ($N=2$).
-    
+
 - **Memory Split:** 50% Weights ($W$), 50% KV Cache ($KV$).
-    
+
 - **Workload:** We want to process a Max In-Flight Batch Size of **16**.
-    
+
 - **Cost Unit:** Let **4 Blocks** represent the time to stream the entire VRAM (Weights + Full KV Pool) once.
 
 
@@ -390,18 +398,18 @@ As established in previous section, decoding is memory-bandwidth bound, so we ar
 We process the full batch ($B=16$) as a single monolithic step.
 
 - **Data Touched:** 100% Weights + 100% KV Pool.
-    
+
 - **Cost per Step:** 4 Blocks (Full IO).
-    
+
 
 **The Flow:**
 
 1. **GPU 0** processes the batch: **4 Blocks**.
-    
+
 2. **P2P Transfer.**
-    
+
 3. **GPU 1** processes the batch: **4 Blocks**.
-    
+
 
 Because GPU 1 cannot start until GPU 0 finishes the entire batch, the time to generate tokens for these 16 sequences is serialized.
 
@@ -411,11 +419,11 @@ $$\text{Total Cost} = 4_{\text{gpu0}} + 4_{\text{gpu1}} = \mathbf{8 \text{ Block
 We split the batch of 16 into two micro-batches of 8 ($MB_1, MB_2$).
 
 - **Data Touched per MB:** 100% Weights ($0.5 \text{ VRAM}$) + 50% KV Pool ($0.25 \text{ VRAM}$).
-    
+
 - **Total Data:** 75% of VRAM.
-    
+
 - **Cost per Step:** $0.75 \times 4 \text{ Blocks} = \mathbf{3 \text{ Blocks}}$.
-    
+
 
 The Flow (Visualized):
 
@@ -426,17 +434,17 @@ In the diagram below, Blue represents MB1 and Purple represents MB2.
 If we look at the time to finish the very first round from a cold start:
 
 - $T=0$: GPU 0 starts MB1 (Blue). [Cost: 3]
-    
+
 - $T=3$: GPU 0 finishes MB1.
-    
+
     - GPU 0 starts MB2 (Purple). [Cost: 3]
-        
+
     - GPU 1 starts MB1 (Blue). [Cost: 3]
-        
+
 - $T=6$: GPU 1 finishes MB1 (First 8 tokens out). GPU 1 starts MB2 (Purple). [Cost: 3]
-    
+
 - $T=9$: GPU 1 finishes MB2 (All 16 tokens out).
-    
+
 
 Total Cold Start Cost: $3 + 3 + 3 = \mathbf{9 \text{ Blocks}}$.
 
@@ -447,18 +455,18 @@ Observation: $9 > 8$. For a single isolated run, micro-batching is indeed slower
 However, in a continuous generation loop, the pipeline is full. We don't wait for cold starts.
 
 - GPU 1 is the bottleneck.
-    
+
 - It processes MB1 (3 Blocks) then immediately MB2 (3 Blocks).
-    
+
 - **Total Throughput Cost:** $3 + 3 = \mathbf{6 \text{ Blocks}}$.
-    
+
 
 **Comparison:**
 
 - **Naive:** 8 Blocks per round.
-    
+
 - **Micro-Batching:** 6 Blocks per round.
-    
+
 - **Result:** Micro-batching provides a **33% speedup** (6 vs 8) in steady state.
 
 ### **2.5.1 Sensitivity Analysis: What if Weights are Huge?**
@@ -468,15 +476,15 @@ One might argue: "Micro-batching loads weights multiple times. If weights domina
 Let's check the extreme case: **80% Weights, 20% KV.**
 
 - **Naive Cost (100% RAM):** 1.0 unit.
-    
+
 - **MB Cost (Single Step):**
-    
+
     - Weights: 0.8 (Must load all).
-        
+
     - KV: $0.1$ (Half of the 20% pool).
-        
+
     - Total: $0.9$ units per MB.
-        
+
 - **MB Steady State (2 steps):** $0.9 \times 2 = \mathbf{1.8 \text{ units}}$.
 
 Even with massive weights, $1.8 < 2.0$. Unless the overhead is super-linear or synchronization costs are extreme, micro-batching should mathematically always yield higher throughput.
@@ -486,9 +494,9 @@ Even with massive weights, $1.8 < 2.0$. Unless the overhead is super-linear or s
 We assume:
 
 - **$P$:** The time to transfer the full batch over the network (Red Block).
-    
+
 - **Blocking:** Compute and P2P do _not_ overlap on a single device.
-    
+
 
 
 ![[Untitled-{{date}}-{{time}}.png]]
@@ -526,21 +534,21 @@ By using asynchronous streams, a single device can overlap different types of wo
 To analyze this, we model the execution of a single stage as **three distinct, non-blocking substeps** per micro-batch:
 
 1. Decode ($t_{\text{decode}}$): The local forward pass (Compute & HBM access).
-    
+
     $$[B_{\text{micro}}, 1, d_{\text{model}}] \rightarrow [B_{\text{micro}}, 1, d_{\text{model}}]$$
-    
+
 2. **Upload ($t_{\text{upload}}$):** Moving the activation tensor from GPU memory to the network buffer.
-    
+
 3. **P2P ($t_{\text{p2p}}$):** The "on-the-wire" transmission to the next device.
 
 ---
 
 ## **3.2 Hiding P2P Latency Completely**
-With this 3-substep overlap, 
+With this 3-substep overlap,
 - while computing **MB $k$**,
-    
+
 - we are uploading **MB $k-1$**,
-    
+
 - and the network is transmitting **MB $k-2$**.
 the effective time a stage takes to process a micro-batch is determined by the **slowest** of the three steps, not the sum:
 
@@ -559,19 +567,19 @@ We could also do a 2-stage local pipelining, instead of 3, where we view `upload
 
 ## 3.3 Feasibility Analysis: Efficiency Trap
 
-So, why isn't everyone running massive LLMs on consumer clusters with perfect efficiency? 
+So, why isn't everyone running massive LLMs on consumer clusters with perfect efficiency?
 
 Essentially, we've established that
 - Larger **batch size** improves hardware utilization:
-    
-    we reuse weight tiles across more tokens, we keep the SMs busier, and decode becomes very cleanly memory-bound.
-    
-- In pipeline parallel, to keep all stages busy, we need enough **microbatches in flight**:
-    
-    $M \geq n_{\text{local\_stages}} \times n_{\text{global\_stages}}$
-    
 
-But these two facts pull in opposite directions once we also account 
+    we reuse weight tiles across more tokens, we keep the SMs busier, and decode becomes very cleanly memory-bound.
+
+- In pipeline parallel, to keep all stages busy, we need enough **microbatches in flight**:
+
+    $M \geq n_{\text{local\_stages}} \times n_{\text{global\_stages}}$
+
+
+But these two facts pull in opposite directions once we also account
 
 
 To hide network latency, we attempt **local micro-batching**, aiming to transform the global step time
@@ -589,7 +597,7 @@ $$
 
 thus allowing communication to be “hidden” under a slower decode phase.
 
-  
+
 However, on memory-bound hardware:
 $$
 T_{\text{decode}}’ \approx  T_{\text{decode}} \quad \forall\, B_{\text{micro}},
@@ -602,9 +610,9 @@ The GPU ends up repeatedly reloading the same weights for many tiny micro-batche
 In our block-analysis in section 2.5: if $T_{\text{decode}} = 4$ blocks and $T_{\text{p2p}} = 4$ blocks, then:
 
 - Before: 4 + 4 = 8 blocks per step
-    
+
 - After “overlap”: $\max(4,4) \times 2$ = 8 blocks per step — **no improvement**
-    
+
 
 We are caught in a paradox:
 To hide the network, we must shrink micro-batches; shrinking micro-batches starves the GPU and eliminates any benefit.
@@ -628,24 +636,24 @@ This fragmentation is fatal for memory-bandwidth-bound tasks like decoding becau
 Recall our memory breakdown:
 
 - **Weights:** $\approx 50\%$ of VRAM. Static. Must be loaded **every single decode step**.
-    
+
 - **KV Cache:** $\approx 40\%$ of VRAM. Dynamic. Traffic scales with batch size.
-    
+
 
 **The "Death by Fragmentation" Loop:**
 
 1. **The Goal:** Hide slow P2P ($t_{\text{p2p}}$ is high).
-    
+
 2. **The Action:** We increase the number of micro-batches ($M$) to create overlap.
-    
+
 3. **The Consequence:** The micro-batch size ($B_{\text{micro}}$) shrinks drastically.
-    
+
 4. **The Efficiency Crash:**
-    
+
     - We still pay the "tax" of loading **100% of the weights** (12GB+) for every tiny micro-batch.
-        
+
     - But we only generate a tiny sliver of tokens (useful work).
-        
+
     - **Result:** The GPU spends 90% of its memory bandwidth reloading weights and only 10% reading/writing user data.
 
 
@@ -664,11 +672,11 @@ A natural counter-proposal is to reduce the pipeline depth—either by using few
 Reducing the number of GPUs (e.g., splitting a model across 2 GPUs instead of 4) reduces micro-batch fragmentation, but introduces severe memory constraints:
 
 - **Increased Weight Footprint:** Each device must hold a larger fraction of the model parameters.
-    
+
 - **KV Starvation:** With weights consuming more VRAM, the remaining budget for the KV cache shrinks. This creates a hard ceiling on maximum sequence length and concurrency, potentially forcing an Out-Of-Memory (OOM) error even at moderate workloads.
-    
+
 - **Reduced Effective Batch Size:** To fit the model, we may be forced to lower the batch size, which ironically leads us back to the "Latency Floor" inefficiency we tried to avoid.
-    
+
 
 #### **Fewer Local Stages (Intra-Device)**
 
@@ -676,14 +684,14 @@ Alternatively, we could simplify the intra-device pipeline by collapsing the 3-s
 
 - **Loss of Latency Hiding:** This reintroduces serialization. For example, if we treat "Upload + P2P" as a single atomic block, the high-speed Copy Engine (Upload) is effectively blocked by the slow Network Interface (P2P). We lose the ability to prepare the next packet while the current one is on the wire, re-exposing the P2P latency we aimed to hide.
 - **Upload Time - With 100Mbps Assumption**
-	
+
 	- $t_{\text{upload}} = t_{\text{download}} \approx \frac{\text{Bytes}_{\text{act}}}{\text{BW}_{\text{p2p\ up/download}}}$ where
 	    - $\text{Bytes}_{\text{act}}\approx 2 \cdot d_{\text{model}} \cdot T_{\text{in-flight}}$ is the size of the activation tensor being transmitted, for bf16.
 	    - $\text{BW}_{\text{p2p}}$ be the effective p2p upload/download bandwidth.
 	Taking in our 32B model, we have
-	
+
 	$\text{Bytes}_{\text{act}} \approx 2 \cdot 5120 \cdot 32 \approx 0.32\ \text{MB}.$ With 100Mb/s bandwidth, we have
-	
+
 	$t_{\text{upload}} = \frac{0.32\ \text{MB}}{12.5\ \text{MBps}} = 28\ \text{ms}$
 
 ---
@@ -708,15 +716,15 @@ To prevent GPUs from sitting idle while peers work, we must split the global bat
 Attemping to hide the specific P2P latency (tp2p​) by further fragmenting the batch on a single device (Intra-Device Pipelining) fails due to the **Latency Floor**.
 
 - **The Trap:** Decoding a batch of 1 takes the same time as a batch of 4 (dominated by loading weights).
-    
+
 - **The Consequence:** Splitting the batch just forces the GPU to load weights more often. You hide the network latency, but you inflate the compute time so much that the total throughput drops.
-    
+
 
 
 So for edge devices hosting LLMs:
 
 1. **Maximize Batch Size:** Fill the "Latency Floor." Process as many tokens as possible per weight load.
-    
+
 2. **Accept the P2P Penalty:** Do not use intra-device overlapping if it requires reducing the batch size below the saturation point. It is better to have a fast compute step followed by a slow network step than to have a disastrously slow "overlapped" step.
-    
+
 3. **Optimize the Link:** Since we cannot hide the latency via compute, the only physical optimization remaining is to improve the link speed (e.g., upgrade from WiFi to Ethernet, or optimize compression of the activation tensors).
