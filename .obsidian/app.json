@@ -1,5 +1,6 @@
 {
   "promptDelete": false,
   "attachmentFolderPath": "./assets",
-  "vimMode": true
+  "vimMode": true,
+  "alwaysUpdateLinks": true
 }
